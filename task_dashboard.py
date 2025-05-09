@@ -27,7 +27,7 @@ if uploaded_files:
     # Sidebar filters
     users = df['user_first_name'].unique()
     locales = df['user_locale'].unique()
-    projects = df['project_id'].unique()
+    projects = df['project_id'].unique()  # Assuming 'project_id' exists
     min_date, max_date = df['date'].min(), df['date'].max()
 
     st.sidebar.subheader("Filter Data")
@@ -46,24 +46,27 @@ if uploaded_files:
     filtered_df = df[mask]
 
     # Tabs
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "📌 User Overview", 
         "📊 Dashboard", 
         "📈 Task Type Breakdown",
         "🧑‍💻 User Drilldown",
         "⏰ Hourly Analysis",
-        "📅 Calendar Heatmap"
+        "📅 Calendar Heatmap",
+        "📥 Raw Data"
     ])
 
     with tab1:
-        st.subheader("Minutes Uploaded by Each User")
-        minute_table = filtered_df.groupby(['user_first_name'])['minutes'].sum().reset_index()
-        st.dataframe(minute_table, use_container_width=True)
+        st.subheader("User Overview")
 
-        st.markdown("---")
-        st.subheader("User List")
-        user_table = df[['user_first_name', 'user_last_name', 'user_locale']].drop_duplicates().sort_values(by='user_first_name')
-        st.dataframe(user_table, use_container_width=True)
+        # Combine minutes uploaded with user info
+        minute_table = filtered_df.groupby('user_first_name')['minutes'].sum().reset_index()
+        user_table = df[['user_first_name', 'user_last_name', 'user_locale']].drop_duplicates()
+        combined_table = pd.merge(minute_table, user_table, on='user_first_name', how='left')
+        combined_table = combined_table[['user_first_name', 'user_last_name', 'user_locale', 'minutes']]
+        combined_table = combined_table.sort_values(by='minutes', ascending=False)
+
+        st.dataframe(combined_table, use_container_width=True)
 
     with tab2:
         total_minutes = filtered_df['minutes'].sum()
@@ -92,7 +95,7 @@ if uploaded_files:
     with tab3:
         st.subheader("Breakdown by Task Type")
         task_summary = filtered_df.groupby('task')['minutes'].sum().reset_index().sort_values(by='minutes', ascending=False)
-
+        
         col1, col2 = st.columns(2)
         with col1:
             fig_pie = px.pie(task_summary, names='task', values='minutes', title="Total Minutes by Task Type")
@@ -129,6 +132,11 @@ if uploaded_files:
         heatmap_data['date'] = pd.to_datetime(heatmap_data['date'])
         cal_fig = calplot.calplot(heatmap_data.set_index('date')['minutes'], cmap='YlGn', figsize=(16, 8))
         st.write(cal_fig)
+
+    with tab7:
+        st.subheader("📥 Raw Filtered Data")
+        st.dataframe(filtered_df, use_container_width=True)
+        st.download_button("📥 Download All Filtered Data", data=filtered_df.to_csv(index=False), file_name="full_filtered_data.csv")
 
 else:
     st.info("Upload one or more CSV files to begin.")
