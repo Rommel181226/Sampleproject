@@ -5,10 +5,7 @@ import plotly.express as px
 st.set_page_config(page_title="Task Dashboard", layout="wide")
 st.title("🗂️ Task Time Analysis Dashboard")
 
-# Sidebar - Project ID
-project_id = st.sidebar.text_input("Project ID", placeholder="Enter Project ID")
-
-# Sidebar - Upload multiple CSV files
+# Upload multiple CSV files
 uploaded_files = st.sidebar.file_uploader("Upload CSV files", type=["csv"], accept_multiple_files=True)
 
 @st.cache_data
@@ -24,10 +21,21 @@ def load_all_data(files):
 if uploaded_files:
     df = load_all_data(uploaded_files)
 
-    # Sidebar filters
-    users = df['user_first_name'].unique()
-    locales = df['user_locale'].unique()
-    min_date, max_date = df['date'].min(), df['date'].max()
+    # Ensure project_id exists
+    if 'project_id' not in df.columns:
+        st.error("❌ Column 'project_id' is missing from the uploaded files.")
+        st.stop()
+
+    project_ids = df['project_id'].dropna().unique().tolist()
+    selected_project_id = st.sidebar.selectbox("Select Project ID", sorted(project_ids))
+
+    # Filter for the selected project
+    project_df = df[df['project_id'] == selected_project_id]
+
+    # Sidebar filters for this project
+    users = project_df['user_first_name'].unique()
+    locales = project_df['user_locale'].unique()
+    min_date, max_date = project_df['date'].min(), project_df['date'].max()
 
     st.sidebar.subheader("Filter Data")
     selected_users = st.sidebar.multiselect("User", options=users, default=users)
@@ -36,27 +44,30 @@ if uploaded_files:
 
     # Apply filters
     mask = (
-        df['user_first_name'].isin(selected_users) &
-        df['user_locale'].isin(selected_locales) &
-        (df['date'] >= selected_dates[0]) & (df['date'] <= selected_dates[1])
+        project_df['user_first_name'].isin(selected_users) &
+        project_df['user_locale'].isin(selected_locales) &
+        (project_df['date'] >= selected_dates[0]) & (project_df['date'] <= selected_dates[1])
     )
-    filtered_df = df[mask]
+    filtered_df = project_df[mask]
 
-    # Tabs for main dashboard
-    tab1, tab2, tab3 = st.tabs(["📌 Minutes by User", "👤 User List", "📊 Dashboard"])
+    # Dashboard Tabs per project
+    tab1, tab2, tab3 = st.tabs([
+        f"📌 Minutes by User - {selected_project_id}",
+        f"👤 User List - {selected_project_id}",
+        f"📊 Dashboard - {selected_project_id}"
+    ])
 
     with tab1:
-        st.subheader("Minutes Uploaded by Each User")
+        st.subheader(f"Minutes Uploaded by Each User (Project: {selected_project_id})")
         minute_table = filtered_df.groupby(['user_first_name'])['minutes'].sum().reset_index()
         st.dataframe(minute_table, use_container_width=True)
 
     with tab2:
-        st.subheader("User List")
-        user_table = df[['user_first_name', 'user_last_name', 'user_locale']].drop_duplicates().sort_values(by='user_first_name')
+        st.subheader(f"User List (Project: {selected_project_id})")
+        user_table = project_df[['user_first_name', 'user_last_name', 'user_locale']].drop_duplicates().sort_values(by='user_first_name')
         st.dataframe(user_table, use_container_width=True)
 
     with tab3:
-        # Metrics
         total_minutes = filtered_df['minutes'].sum()
         avg_minutes = filtered_df['minutes'].mean()
         total_tasks = filtered_df.shape[0]
@@ -80,4 +91,4 @@ if uploaded_files:
         st.dataframe(filtered_df[['date', 'user_first_name', 'user_last_name', 'task', 'minutes']], use_container_width=True)
 
 else:
-    st.info("Upload one or more CSV files to begin.")
+    st.info("Upload one or more CSV files with a 'project_id' column to begin.")
