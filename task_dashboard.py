@@ -21,10 +21,7 @@ def load_all_data(files):
 if uploaded_files:
     df = load_all_data(uploaded_files)
 
-    # Ensure project_id exists
-    if 'project_id' not in df.columns:
-        st.error("❌ Column 'project_id' is missing from the uploaded files.")
-        st.stop()
+    
 
     project_ids = df['project_id'].dropna().unique().tolist()
     selected_project_id = st.sidebar.selectbox("Select Project ID", sorted(project_ids))
