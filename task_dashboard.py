@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import altair as alt
+import calplot
 
 st.set_page_config(page_title="Task Dashboard", layout="wide")
 st.title("🗂️ Task Time Analysis Dashboard")
@@ -25,29 +27,33 @@ if uploaded_files:
     # Sidebar filters
     users = df['user_first_name'].unique()
     locales = df['user_locale'].unique()
+    projects = df['project_id'].unique()  # Assuming 'project_id' exists
     min_date, max_date = df['date'].min(), df['date'].max()
 
     st.sidebar.subheader("Filter Data")
     selected_users = st.sidebar.multiselect("User", options=users, default=users)
     selected_locales = st.sidebar.multiselect("Locale", options=locales, default=locales)
+    selected_projects = st.sidebar.multiselect("Project", options=projects, default=projects)
     selected_dates = st.sidebar.date_input("Date Range", [min_date, max_date])
 
     # Apply filters
     mask = (
         df['user_first_name'].isin(selected_users) &
         df['user_locale'].isin(selected_locales) &
+        df['project_id'].isin(selected_projects) &  # Project filter added
         (df['date'] >= selected_dates[0]) & (df['date'] <= selected_dates[1])
     )
     filtered_df = df[mask]
 
     # Tabs
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "📌 Minutes by User", 
         "👤 User List", 
         "📊 Dashboard", 
         "📈 Task Type Breakdown",
         "🧑‍💻 User Drilldown",
-        "⏰ Hourly Analysis"
+        "⏰ Hourly Analysis",
+        "📅 Calendar Heatmap"
     ])
 
     with tab1:
@@ -117,6 +123,13 @@ if uploaded_files:
         hourly_summary = filtered_df.groupby('hour')['minutes'].sum().reset_index()
         fig_hour = px.bar(hourly_summary, x='hour', y='minutes', title="Minutes Logged by Hour of Day")
         st.plotly_chart(fig_hour, use_container_width=True)
+
+    with tab7:
+        st.subheader("📅 Calendar Heatmap")
+        heatmap_data = filtered_df.groupby('date')['minutes'].sum().reset_index()
+        heatmap_data['date'] = pd.to_datetime(heatmap_data['date'])
+        cal_fig = calplot.calplot(heatmap_data.set_index('date')['minutes'], cmap='YlGn', figsize=(16, 8))
+        st.write(cal_fig)
 
 else:
     st.info("Upload one or more CSV files to begin.")
