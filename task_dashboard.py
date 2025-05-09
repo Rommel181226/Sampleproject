@@ -46,10 +46,9 @@ if uploaded_files:
     filtered_df = df[mask]
 
     # Tabs
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "📌 User Overview", 
         "📊 Dashboard", 
-        "📈 Task Type Breakdown",
         "🧑‍💻 User Drilldown",
         "⏰ Hourly Analysis",
         "📅 Calendar Heatmap",
@@ -93,18 +92,6 @@ if uploaded_files:
         st.download_button("📥 Download Filtered Data", data=filtered_df.to_csv(index=False), file_name="filtered_data.csv")
 
     with tab3:
-        st.subheader("Breakdown by Task Type")
-        task_summary = filtered_df.groupby('task')['minutes'].sum().reset_index().sort_values(by='minutes', ascending=False)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            fig_pie = px.pie(task_summary, names='task', values='minutes', title="Total Minutes by Task Type")
-            st.plotly_chart(fig_pie, use_container_width=True)
-        with col2:
-            fig_bar = px.bar(task_summary, x='task', y='minutes', title='Total Minutes by Task Type', text_auto=True)
-            st.plotly_chart(fig_bar, use_container_width=True)
-
-    with tab4:
         st.subheader("User Drilldown")
         selected_user = st.selectbox("Select User", options=filtered_df['user_first_name'].unique())
         user_df = filtered_df[filtered_df['user_first_name'] == selected_user]
@@ -120,20 +107,20 @@ if uploaded_files:
         st.markdown("### Task History")
         st.dataframe(user_df[['date', 'task', 'minutes']], use_container_width=True)
 
-    with tab5:
+    with tab4:
         st.subheader("Hourly Time-of-Day Analysis")
         hourly_summary = filtered_df.groupby('hour')['minutes'].sum().reset_index()
         fig_hour = px.bar(hourly_summary, x='hour', y='minutes', title="Minutes Logged by Hour of Day")
         st.plotly_chart(fig_hour, use_container_width=True)
 
-    with tab6:
+    with tab5:
         st.subheader("📅 Calendar Heatmap")
         heatmap_data = filtered_df.groupby('date')['minutes'].sum().reset_index()
         heatmap_data['date'] = pd.to_datetime(heatmap_data['date'])
         cal_fig = calplot.calplot(heatmap_data.set_index('date')['minutes'], cmap='YlGn', figsize=(16, 8))
         st.write(cal_fig)
 
-    with tab7:
+    with tab6:
         st.subheader("📥 Raw Filtered Data")
         st.dataframe(filtered_df, use_container_width=True)
         st.download_button("📥 Download All Filtered Data", data=filtered_df.to_csv(index=False), file_name="full_filtered_data.csv")
