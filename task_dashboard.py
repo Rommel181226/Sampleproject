@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import altair as alt
+import calplot
 
-# Page configuration
 st.set_page_config(page_title="Task Dashboard", layout="wide")
 st.title("🗂️ Task Time Analysis Dashboard")
 
@@ -23,10 +24,12 @@ def load_all_data(files):
 if uploaded_files:
     df = load_all_data(uploaded_files)
 
+    # Check if 'project_id' exists, if not, fallback
+    projects = df['project_id'].unique() if 'project_id' in df.columns else ['No Project ID']
+
     # Sidebar filters
     users = df['user_first_name'].unique()
     locales = df['user_locale'].unique()
-    projects = df['project_id'].unique() if 'project_id' in df.columns else []
     min_date, max_date = df['date'].min(), df['date'].max()
 
     st.sidebar.subheader("Filter Data")
@@ -39,28 +42,30 @@ if uploaded_files:
     mask = (
         df['user_first_name'].isin(selected_users) &
         df['user_locale'].isin(selected_locales) &
-        df['project_id'].isin(selected_projects) &
         (df['date'] >= selected_dates[0]) & (df['date'] <= selected_dates[1])
     )
+    # Add project filter if available
+    if 'project_id' in df.columns:
+        mask &= df['project_id'].isin(selected_projects)
+    
     filtered_df = df[mask]
 
     # Tabs
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "📌 User and Minutes Overview", 
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+        "📌 User Summary & List", 
         "📊 Dashboard", 
         "📈 Task Type Breakdown",
         "🧑‍💻 User Drilldown",
         "⏰ Hourly Analysis",
-        "📑 Per-User Summary"
+        "📅 Calendar Heatmap"
     ])
 
     with tab1:
-        st.subheader("📌 User and Task Overview")
-        # Combine user name, task, and total minutes
-        minute_table = filtered_df.groupby(['user_first_name', 'task'])['minutes'].sum().reset_index()
+        st.subheader("Minutes Uploaded by Each User")
+        minute_table = filtered_df.groupby(['user_first_name'])['minutes'].sum().reset_index()
         st.dataframe(minute_table, use_container_width=True)
 
-        st.subheader("👤 User List")
+        st.subheader("User List")
         user_table = df[['user_first_name', 'user_last_name', 'user_locale']].drop_duplicates().sort_values(by='user_first_name')
         st.dataframe(user_table, use_container_width=True)
 
@@ -89,38 +94,19 @@ if uploaded_files:
         st.download_button("📥 Download Filtered Data", data=filtered_df.to_csv(index=False), file_name="filtered_data.csv")
 
     with tab3:
-        st.subheader("📊 Task Type Breakdown (Minutes Spent per Task)")
-
-        # Task summary with sorting by total minutes spent
+        st.subheader("Breakdown by Task Type")
         task_summary = filtered_df.groupby('task')['minutes'].sum().reset_index().sort_values(by='minutes', ascending=False)
         
-        if not task_summary.empty:
-            # Pie chart with sorted tasks and intuitive colors
-            col1, col2 = st.columns(2)
-            with col1:
-                fig_pie = px.pie(task_summary, 
-                                 names='task', 
-                                 values='minutes', 
-                                 title="Total Minutes Spent per Task",
-                                 color='minutes',  # color by minutes spent to make it more intuitive
-                                 color_continuous_scale='Viridis')  # using a perceptual color scale
-                st.plotly_chart(fig_pie, use_container_width=True)
-
-            with col2:
-                fig_bar = px.bar(task_summary, 
-                                 x='task', 
-                                 y='minutes', 
-                                 title="Minutes Spent per Task Type", 
-                                 text_auto=True,
-                                 color='minutes',  # color by minutes spent
-                                 color_continuous_scale='Viridis')  # using the same color scale for consistency
-                fig_bar.update_layout(xaxis_title="Task Type", yaxis_title="Minutes", xaxis_tickangle=-45)
-                st.plotly_chart(fig_bar, use_container_width=True)
-        else:
-            st.warning("No task data available for the selected filters.")
+        col1, col2 = st.columns(2)
+        with col1:
+            fig_pie = px.pie(task_summary, names='task', values='minutes', title="Total Minutes by Task Type")
+            st.plotly_chart(fig_pie, use_container_width=True)
+        with col2:
+            fig_bar = px.bar(task_summary, x='task', y='minutes', title='Total Minutes by Task Type', text_auto=True)
+            st.plotly_chart(fig_bar, use_container_width=True)
 
     with tab4:
-        st.subheader("🧑‍💻 User Drilldown")
+        st.subheader("User Drilldown")
         selected_user = st.selectbox("Select User", options=filtered_df['user_first_name'].unique())
         user_df = filtered_df[filtered_df['user_first_name'] == selected_user]
 
@@ -136,22 +122,17 @@ if uploaded_files:
         st.dataframe(user_df[['date', 'task', 'minutes']], use_container_width=True)
 
     with tab5:
-        st.subheader("⏰ Hourly Time-of-Day Analysis")
+        st.subheader("Hourly Time-of-Day Analysis")
         hourly_summary = filtered_df.groupby('hour')['minutes'].sum().reset_index()
         fig_hour = px.bar(hourly_summary, x='hour', y='minutes', title="Minutes Logged by Hour of Day")
         st.plotly_chart(fig_hour, use_container_width=True)
 
     with tab6:
-        st.subheader("📑 Per-User Summary (Downloadable CSV)")
-        user_summary = filtered_df.groupby('user_first_name').agg(
-            total_minutes=('minutes', 'sum'),
-            avg_task_time=('minutes', 'mean'),
-            num_tasks=('task', 'count'),
-            active_days=('date', 'nunique')
-        ).reset_index()
-
-        st.dataframe(user_summary, use_container_width=True)
-        st.download_button("📥 Download User Summary", data=user_summary.to_csv(index=False), file_name="user_summary.csv")
+        st.subheader("📅 Calendar Heatmap")
+        heatmap_data = filtered_df.groupby('date')['minutes'].sum().reset_index()
+        heatmap_data['date'] = pd.to_datetime(heatmap_data['date'])
+        cal_fig = calplot.calplot(heatmap_data.set_index('date')['minutes'], cmap='YlGn', figsize=(16, 8))
+        st.write(cal_fig)
 
 else:
     st.info("Upload one or more CSV files to begin.")
