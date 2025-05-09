@@ -54,17 +54,16 @@ if uploaded_files:
         "📑 Per-User Summary"
     ])
 
-    # Tab 1 - Combined Table (User and Minutes Overview)
     with tab1:
-        st.subheader("📌 User and Minutes Overview")
-        
-        # Combine user information with total minutes spent
-        minute_table = filtered_df.groupby(['user_first_name', 'user_last_name', 'user_locale'])['minutes'].sum().reset_index()
-        
-        # Display the combined table
+        st.subheader("📌 User and Task Overview")
+        # Combine user name, task, and total minutes
+        minute_table = filtered_df.groupby(['user_first_name', 'task'])['minutes'].sum().reset_index()
         st.dataframe(minute_table, use_container_width=True)
 
-    # Tab 2 - Dashboard Metrics and Visuals
+        st.subheader("👤 User List")
+        user_table = df[['user_first_name', 'user_last_name', 'user_locale']].drop_duplicates().sort_values(by='user_first_name')
+        st.dataframe(user_table, use_container_width=True)
+
     with tab2:
         total_minutes = filtered_df['minutes'].sum()
         avg_minutes = filtered_df['minutes'].mean()
@@ -89,36 +88,37 @@ if uploaded_files:
         st.dataframe(filtered_df[['date', 'user_first_name', 'user_last_name', 'task', 'minutes']], use_container_width=True)
         st.download_button("📥 Download Filtered Data", data=filtered_df.to_csv(index=False), file_name="filtered_data.csv")
 
-    # Tab 3 - Task Type Breakdown (Minutes Spent per Task)
     with tab3:
         st.subheader("📊 Task Type Breakdown (Minutes Spent per Task)")
 
         # Task summary with sorting by total minutes spent
         task_summary = filtered_df.groupby('task')['minutes'].sum().reset_index().sort_values(by='minutes', ascending=False)
         
-        # Bar chart with sorted tasks and intuitive colors
-        col1, col2 = st.columns(2)
-        with col1:
-            fig_pie = px.pie(task_summary, 
-                             names='task', 
-                             values='minutes', 
-                             title="Total Minutes Spent per Task",
-                             color='minutes',  # color by minutes spent to make it more intuitive
-                             color_continuous_scale='Viridis')  # using a perceptual color scale
-            st.plotly_chart(fig_pie, use_container_width=True)
+        if not task_summary.empty:
+            # Pie chart with sorted tasks and intuitive colors
+            col1, col2 = st.columns(2)
+            with col1:
+                fig_pie = px.pie(task_summary, 
+                                 names='task', 
+                                 values='minutes', 
+                                 title="Total Minutes Spent per Task",
+                                 color='minutes',  # color by minutes spent to make it more intuitive
+                                 color_continuous_scale='Viridis')  # using a perceptual color scale
+                st.plotly_chart(fig_pie, use_container_width=True)
 
-        with col2:
-            fig_bar = px.bar(task_summary, 
-                             x='task', 
-                             y='minutes', 
-                             title="Minutes Spent per Task Type", 
-                             text_auto=True,
-                             color='minutes',  # color by minutes spent
-                             color_continuous_scale='Viridis')  # using the same color scale for consistency
-            fig_bar.update_layout(xaxis_title="Task Type", yaxis_title="Minutes", xaxis_tickangle=-45)
-            st.plotly_chart(fig_bar, use_container_width=True)
+            with col2:
+                fig_bar = px.bar(task_summary, 
+                                 x='task', 
+                                 y='minutes', 
+                                 title="Minutes Spent per Task Type", 
+                                 text_auto=True,
+                                 color='minutes',  # color by minutes spent
+                                 color_continuous_scale='Viridis')  # using the same color scale for consistency
+                fig_bar.update_layout(xaxis_title="Task Type", yaxis_title="Minutes", xaxis_tickangle=-45)
+                st.plotly_chart(fig_bar, use_container_width=True)
+        else:
+            st.warning("No task data available for the selected filters.")
 
-    # Tab 4 - User Drilldown
     with tab4:
         st.subheader("🧑‍💻 User Drilldown")
         selected_user = st.selectbox("Select User", options=filtered_df['user_first_name'].unique())
@@ -135,14 +135,12 @@ if uploaded_files:
         st.markdown("### Task History")
         st.dataframe(user_df[['date', 'task', 'minutes']], use_container_width=True)
 
-    # Tab 5 - Hourly Time-of-Day Analysis
     with tab5:
         st.subheader("⏰ Hourly Time-of-Day Analysis")
         hourly_summary = filtered_df.groupby('hour')['minutes'].sum().reset_index()
         fig_hour = px.bar(hourly_summary, x='hour', y='minutes', title="Minutes Logged by Hour of Day")
         st.plotly_chart(fig_hour, use_container_width=True)
 
-    # Tab 6 - Per-User Summary (Downloadable CSV)
     with tab6:
         st.subheader("📑 Per-User Summary (Downloadable CSV)")
         user_summary = filtered_df.groupby('user_first_name').agg(
