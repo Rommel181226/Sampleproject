@@ -27,7 +27,7 @@ if uploaded_files:
     # Sidebar filters
     users = df['user_first_name'].unique()
     locales = df['user_locale'].unique()
-    projects = df['project_id'].unique()  # Assuming 'project_id' exists
+    projects = df['project_id'].unique()
     min_date, max_date = df['date'].min(), df['date'].max()
 
     st.sidebar.subheader("Filter Data")
@@ -40,15 +40,14 @@ if uploaded_files:
     mask = (
         df['user_first_name'].isin(selected_users) &
         df['user_locale'].isin(selected_locales) &
-        df['project_id'].isin(selected_projects) &  # Project filter added
+        df['project_id'].isin(selected_projects) &
         (df['date'] >= selected_dates[0]) & (df['date'] <= selected_dates[1])
     )
     filtered_df = df[mask]
 
     # Tabs
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-        "📌 Minutes by User", 
-        "👤 User List", 
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "📌 User Overview", 
         "📊 Dashboard", 
         "📈 Task Type Breakdown",
         "🧑‍💻 User Drilldown",
@@ -61,12 +60,12 @@ if uploaded_files:
         minute_table = filtered_df.groupby(['user_first_name'])['minutes'].sum().reset_index()
         st.dataframe(minute_table, use_container_width=True)
 
-    with tab2:
+        st.markdown("---")
         st.subheader("User List")
         user_table = df[['user_first_name', 'user_last_name', 'user_locale']].drop_duplicates().sort_values(by='user_first_name')
         st.dataframe(user_table, use_container_width=True)
 
-    with tab3:
+    with tab2:
         total_minutes = filtered_df['minutes'].sum()
         avg_minutes = filtered_df['minutes'].mean()
         total_tasks = filtered_df.shape[0]
@@ -90,10 +89,10 @@ if uploaded_files:
         st.dataframe(filtered_df[['date', 'user_first_name', 'user_last_name', 'task', 'minutes']], use_container_width=True)
         st.download_button("📥 Download Filtered Data", data=filtered_df.to_csv(index=False), file_name="filtered_data.csv")
 
-    with tab4:
+    with tab3:
         st.subheader("Breakdown by Task Type")
         task_summary = filtered_df.groupby('task')['minutes'].sum().reset_index().sort_values(by='minutes', ascending=False)
-        
+
         col1, col2 = st.columns(2)
         with col1:
             fig_pie = px.pie(task_summary, names='task', values='minutes', title="Total Minutes by Task Type")
@@ -102,7 +101,7 @@ if uploaded_files:
             fig_bar = px.bar(task_summary, x='task', y='minutes', title='Total Minutes by Task Type', text_auto=True)
             st.plotly_chart(fig_bar, use_container_width=True)
 
-    with tab5:
+    with tab4:
         st.subheader("User Drilldown")
         selected_user = st.selectbox("Select User", options=filtered_df['user_first_name'].unique())
         user_df = filtered_df[filtered_df['user_first_name'] == selected_user]
@@ -118,13 +117,13 @@ if uploaded_files:
         st.markdown("### Task History")
         st.dataframe(user_df[['date', 'task', 'minutes']], use_container_width=True)
 
-    with tab6:
+    with tab5:
         st.subheader("Hourly Time-of-Day Analysis")
         hourly_summary = filtered_df.groupby('hour')['minutes'].sum().reset_index()
         fig_hour = px.bar(hourly_summary, x='hour', y='minutes', title="Minutes Logged by Hour of Day")
         st.plotly_chart(fig_hour, use_container_width=True)
 
-    with tab7:
+    with tab6:
         st.subheader("📅 Calendar Heatmap")
         heatmap_data = filtered_df.groupby('date')['minutes'].sum().reset_index()
         heatmap_data['date'] = pd.to_datetime(heatmap_data['date'])
