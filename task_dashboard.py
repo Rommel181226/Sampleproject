@@ -88,13 +88,7 @@ if uploaded_files:
     with tab2:
         st.subheader("Breakdown by Task Type")
 
-        # Select user for filtering the task breakdown
-        selected_task_user = st.selectbox("Select User for Task Breakdown", options=["All Users"] + list(filtered_df['user_first_name'].unique()))
-
-        if selected_task_user != "All Users":
-            task_summary = filtered_df[filtered_df['user_first_name'] == selected_task_user].groupby('task')['minutes'].sum().reset_index().sort_values(by='minutes', ascending=False)
-        else:
-            task_summary = filtered_df.groupby('task')['minutes'].sum().reset_index().sort_values(by='minutes', ascending=False)
+        task_summary = filtered_df.groupby('task')['minutes'].sum().reset_index().sort_values(by='minutes', ascending=False)
 
         col1, col2 = st.columns(2)
         with col1:
