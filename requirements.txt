@@ -1,5 +1,5 @@
 streamlit
 pandas
 plotly
-matplotlib
 calplot
+matplotlib  # calplot depends on matplotlib for plotting
