@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.express as px
 import calplot
 import os
-from textblob import TextBlob
 
 # --- Page Config ---
 st.set_page_config(page_title="Task Dashboard", layout="wide")
@@ -33,20 +32,14 @@ if uploaded_files:
 
     # --- Sidebar Filters ---
     users = df['user_first_name'].unique()
-    locales = df['user_locale'].unique()
-    projects = df['project_id'].unique()
     min_date, max_date = df['date'].min(), df['date'].max()
 
     st.sidebar.subheader("Filter Data")
     selected_users = st.sidebar.multiselect("User", options=users, default=list(users))
-    selected_locales = st.sidebar.multiselect("Locale", options=locales, default=list(locales))
-    selected_projects = st.sidebar.multiselect("Project", options=projects, default=list(projects))
     selected_dates = st.sidebar.date_input("Date Range", [min_date, max_date])
 
     mask = (
         df['user_first_name'].isin(selected_users) &
-        df['user_locale'].isin(selected_locales) &
-        df['project_id'].isin(selected_projects) &
         (df['date'] >= selected_dates[0]) & (df['date'] <= selected_dates[1])
     )
     filtered_df = df[mask]
@@ -79,13 +72,14 @@ if uploaded_files:
         st.plotly_chart(fig_date, use_container_width=True)
 
         st.markdown("### 📋 Task Records")
-        st.dataframe(filtered_df[['date', 'user_first_name', 'user_last_name', 'task', 'minutes']], use_container_width=True)
+        task_cols = ['date', 'started_at', 'hour', 'user_first_name', 'user_last_name', 'user_locale', 'task', 'minutes', 'project_id']
+        display_cols = [col for col in task_cols if col in filtered_df.columns]
+        st.dataframe(filtered_df[display_cols], use_container_width=True)
+
         st.download_button("📥 Download Filtered Data", data=filtered_df.to_csv(index=False), file_name="filtered_data.csv")
 
     with tab2:
         st.subheader("Breakdown by Task Type")
-
-        # Select user for filtering the task breakdown
         selected_task_user = st.selectbox("Select User for Task Breakdown", options=["All Users"] + list(filtered_df['user_first_name'].unique()))
 
         if selected_task_user != "All Users":
@@ -118,16 +112,24 @@ if uploaded_files:
         st.dataframe(user_df[['date', 'task', 'minutes']], use_container_width=True)
 
     with tab4:
-        st.subheader("Hourly Time-of-Day Analysis")
+        st.subheader("⏰ Hourly Time-of-Day Analysis")
+
+        st.markdown("### ⌛ Total Minutes Logged by Hour")
         hourly_summary = filtered_df.groupby('hour')['minutes'].sum().reset_index()
-        fig_hour = px.bar(hourly_summary, x='hour', y='minutes', title="Minutes Logged by Hour of Day")
+        
+        # Plot total minutes per hour
+        fig_hour = px.bar(hourly_summary, x='hour', y='minutes',
+                          labels={'hour': 'Hour of Day', 'minutes': 'Total Minutes'},
+                          title="Total Minutes Logged by Hour of Day",
+                          text_auto=True)
         st.plotly_chart(fig_hour, use_container_width=True)
 
-        # Apply NLP Sentiment Analysis
-        filtered_df['sentiment'] = filtered_df['task'].apply(lambda x: TextBlob(str(x)).sentiment.polarity)
-        sentiment_summary = filtered_df.groupby('hour')['sentiment'].mean().reset_index()
-        fig_sentiment = px.line(sentiment_summary, x='hour', y='sentiment', markers=True, title="Average Sentiment by Hour")
-        st.plotly_chart(fig_sentiment, use_container_width=True)
+        # Select hour range for detailed view
+        selected_hour_range = st.slider("Select Hour Range", min_value=0, max_value=23, value=(0, 23), step=1)
+        filtered_by_hour = hourly_summary[(hourly_summary['hour'] >= selected_hour_range[0]) & 
+                                          (hourly_summary['hour'] <= selected_hour_range[1])]
+        st.markdown(f"### ⏰ Minutes Logged Between {selected_hour_range[0]}:00 and {selected_hour_range[1]}:00")
+        st.bar_chart(filtered_by_hour.set_index('hour')['minutes'])
 
     with tab5:
         st.subheader("📅 Calendar Heatmap")
