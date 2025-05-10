@@ -122,24 +122,31 @@ if uploaded_files:
         hourly_summary = filtered_df.groupby('hour')['minutes'].sum().reset_index()
         fig_hour = px.bar(hourly_summary, x='hour', y='minutes',
                           labels={'hour': 'Hour of Day', 'minutes': 'Total Minutes'},
-                          title="Total Minutes Logged by Hour of Day")
+                          title="Total Minutes Logged by Hour of Day",
+                          text_auto=True)
         st.plotly_chart(fig_hour, use_container_width=True)
 
-        st.markdown("### 👥 User Activity by Hour")
-        user_hour_summary = filtered_df.groupby(['hour', 'user_first_name'])['minutes'].sum().reset_index()
-        fig_user_hour = px.bar(user_hour_summary, x='hour', y='minutes', color='user_first_name',
-                               title='Minutes per Hour by User', barmode='group',
-                               labels={'user_first_name': 'User'})
-        st.plotly_chart(fig_user_hour, use_container_width=True)
+        # Filter for Specific Hour Range
+        selected_hour_range = st.slider("Select Hour Range", min_value=0, max_value=23, value=(0, 23), step=1)
+        filtered_by_hour = hourly_summary[(hourly_summary['hour'] >= selected_hour_range[0]) & 
+                                          (hourly_summary['hour'] <= selected_hour_range[1])]
+        st.markdown(f"### ⏰ Minutes Logged Between {selected_hour_range[0]}:00 and {selected_hour_range[1]}:00")
+        st.bar_chart(filtered_by_hour.set_index('hour')['minutes'])
 
-        st.markdown("### 🧩 Task Type by Hour")
+        # Task Type Activity by Hour
+        st.markdown("### 🧩 Task Type Activity by Hour")
         task_hour_summary = filtered_df.groupby(['hour', 'task'])['minutes'].sum().reset_index()
-        fig_task_hour = px.bar(task_hour_summary, x='hour', y='minutes', color='task',
-                               title='Minutes per Hour by Task Type', barmode='stack',
-                               labels={'task': 'Task'})
+        selected_task_type = st.selectbox("Select Task Type", options=filtered_df['task'].unique())
+        filtered_task_type = task_hour_summary[task_hour_summary['task'] == selected_task_type]
+
+        fig_task_hour = px.bar(filtered_task_type, x='hour', y='minutes', 
+                               title=f"Minutes Spent on {selected_task_type} by Hour",
+                               labels={'hour': 'Hour of Day', 'minutes': 'Minutes'},
+                               text_auto=True)
         st.plotly_chart(fig_task_hour, use_container_width=True)
 
-        st.markdown("### 🔥 Hourly Heatmap")
+        # Highlight Hourly Heatmap (Optional for Overview)
+        st.markdown("### 🔥 Hourly Heatmap (Activity by Hour and User)")
         pivot_heatmap = filtered_df.pivot_table(index='user_first_name', columns='hour', values='minutes', aggfunc='sum').fillna(0)
         st.dataframe(pivot_heatmap.style.background_gradient(cmap='YlGnBu', axis=1),
                      use_container_width=True)
