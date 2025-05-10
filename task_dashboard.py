@@ -32,20 +32,14 @@ if uploaded_files:
 
     # --- Sidebar Filters ---
     users = df['user_first_name'].unique()
-    locales = df['user_locale'].unique()
-    projects = df['project_id'].unique()
     min_date, max_date = df['date'].min(), df['date'].max()
 
     st.sidebar.subheader("Filter Data")
     selected_users = st.sidebar.multiselect("User", options=users, default=list(users))
-    selected_locales = st.sidebar.multiselect("Locale", options=locales, default=list(locales))
-    selected_projects = st.sidebar.multiselect("Project", options=projects, default=list(projects))
     selected_dates = st.sidebar.date_input("Date Range", [min_date, max_date])
 
     mask = (
         df['user_first_name'].isin(selected_users) &
-        df['user_locale'].isin(selected_locales) &
-        df['project_id'].isin(selected_projects) &
         (df['date'] >= selected_dates[0]) & (df['date'] <= selected_dates[1])
     )
     filtered_df = df[mask]
@@ -88,7 +82,6 @@ if uploaded_files:
     with tab2:
         st.subheader("Breakdown by Task Type")
 
-        # Select user for filtering the task breakdown
         selected_task_user = st.selectbox("Select User for Task Breakdown", options=["All Users"] + list(filtered_df['user_first_name'].unique()))
 
         if selected_task_user != "All Users":
@@ -104,6 +97,26 @@ if uploaded_files:
             fig_bar = px.bar(task_summary, x='task', y='minutes', title='Total Minutes by Task Type', text_auto=True)
             st.plotly_chart(fig_bar, use_container_width=True)
 
+        st.markdown("### 📋 Complete Task Records by Type")
+        task_detail_columns = [
+            'date', 'started_at', 'hour', 'user_first_name', 'user_last_name',
+            'user_locale', 'project_id', 'task', 'minutes'
+        ]
+        cols_exist = [col for col in task_detail_columns if col in filtered_df.columns]
+
+        if selected_task_user != "All Users":
+            display_df = filtered_df[filtered_df['user_first_name'] == selected_task_user]
+        else:
+            display_df = filtered_df
+
+        st.dataframe(display_df[cols_exist].sort_values(by=['date', 'started_at']), use_container_width=True)
+
+        st.download_button(
+            "📥 Download Complete Task Records",
+            data=display_df[cols_exist].to_csv(index=False),
+            file_name="complete_task_records.csv"
+        )
+
     with tab3:
         st.subheader("User Drilldown")
         selected_user = st.selectbox("Select User", options=filtered_df['user_first_name'].unique())
@@ -117,8 +130,19 @@ if uploaded_files:
         fig_user = px.bar(user_chart, x='task', y='minutes', title=f"Task Breakdown for {selected_user}")
         st.plotly_chart(fig_user, use_container_width=True)
 
-        st.markdown("### Task History")
-        st.dataframe(user_df[['date', 'task', 'minutes']], use_container_width=True)
+        st.markdown("### 📋 Detailed Task History")
+        drilldown_cols = [
+            'date', 'started_at', 'hour', 'user_locale', 'project_id', 'task', 'minutes'
+        ]
+        cols_present = [col for col in drilldown_cols if col in user_df.columns]
+
+        st.dataframe(user_df[cols_present].sort_values(by=['date', 'started_at']), use_container_width=True)
+
+        st.download_button(
+            "📥 Download User Task History",
+            data=user_df[cols_present].to_csv(index=False),
+            file_name=f"{selected_user.lower()}_task_history.csv"
+        )
 
     with tab4:
         st.subheader("Hourly Time-of-Day Analysis")
