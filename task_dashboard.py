@@ -4,9 +4,6 @@ import plotly.express as px
 import calplot
 import os
 from textblob import TextBlob
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.cluster import KMeans
-from sklearn.feature_extraction.text import CountVectorizer
 
 # --- Page Config ---
 st.set_page_config(page_title="Task Dashboard", layout="wide")
@@ -54,25 +51,6 @@ if uploaded_files:
     )
     filtered_df = df[mask]
 
-    # --- Sentiment Analysis ---
-    def get_sentiment(text):
-        analysis = TextBlob(text)
-        return analysis.sentiment.polarity
-
-    filtered_df['sentiment'] = filtered_df['task'].apply(get_sentiment)
-
-    # --- Task Categorization Using KMeans ---
-    vectorizer = TfidfVectorizer(stop_words='english')
-    X = vectorizer.fit_transform(filtered_df['task'])
-
-    kmeans = KMeans(n_clusters=5, random_state=42)
-    filtered_df['task_category'] = kmeans.fit_predict(X)
-
-    # --- Keyword Extraction ---
-    count_vectorizer = CountVectorizer(stop_words='english', max_features=10)
-    X_keywords = count_vectorizer.fit_transform(filtered_df['task'])
-    keywords = count_vectorizer.get_feature_names_out()
-
     # --- Tabs ---
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Summary", "📋 Task Types", "👤 User Drilldown", "⏰ Hourly", "📅 Calendar"])
 
@@ -81,7 +59,6 @@ if uploaded_files:
         minute_table = filtered_df.groupby(['user_first_name'])['minutes'].sum().reset_index()
         st.dataframe(minute_table, use_container_width=True)
 
-        st.subheader("Total Time & Task Information")
         total_minutes = filtered_df['minutes'].sum()
         avg_minutes = filtered_df['minutes'].mean()
         total_tasks = filtered_df.shape[0]
@@ -100,6 +77,10 @@ if uploaded_files:
         date_chart = filtered_df.groupby('date')['minutes'].sum().reset_index()
         fig_date = px.line(date_chart, x='date', y='minutes', markers=True, title='Minutes Logged Over Time')
         st.plotly_chart(fig_date, use_container_width=True)
+
+        st.markdown("### 📋 Task Records")
+        st.dataframe(filtered_df[['date', 'user_first_name', 'user_last_name', 'task', 'minutes']], use_container_width=True)
+        st.download_button("📥 Download Filtered Data", data=filtered_df.to_csv(index=False), file_name="filtered_data.csv")
 
     with tab2:
         st.subheader("Breakdown by Task Type")
@@ -133,11 +114,20 @@ if uploaded_files:
         fig_user = px.bar(user_chart, x='task', y='minutes', title=f"Task Breakdown for {selected_user}")
         st.plotly_chart(fig_user, use_container_width=True)
 
+        st.markdown("### Task History")
+        st.dataframe(user_df[['date', 'task', 'minutes']], use_container_width=True)
+
     with tab4:
         st.subheader("Hourly Time-of-Day Analysis")
         hourly_summary = filtered_df.groupby('hour')['minutes'].sum().reset_index()
         fig_hour = px.bar(hourly_summary, x='hour', y='minutes', title="Minutes Logged by Hour of Day")
         st.plotly_chart(fig_hour, use_container_width=True)
+
+        # Apply NLP Sentiment Analysis
+        filtered_df['sentiment'] = filtered_df['task'].apply(lambda x: TextBlob(str(x)).sentiment.polarity)
+        sentiment_summary = filtered_df.groupby('hour')['sentiment'].mean().reset_index()
+        fig_sentiment = px.line(sentiment_summary, x='hour', y='sentiment', markers=True, title="Average Sentiment by Hour")
+        st.plotly_chart(fig_sentiment, use_container_width=True)
 
     with tab5:
         st.subheader("📅 Calendar Heatmap")
@@ -145,22 +135,6 @@ if uploaded_files:
         heatmap_data['date'] = pd.to_datetime(heatmap_data['date'])
         fig, _ = calplot.calplot(heatmap_data.set_index('date')['minutes'], cmap='YlGn', figsize=(16, 8))
         st.pyplot(fig)
-
-        # Sentiment analysis chart
-        st.subheader("Sentiment Analysis of Tasks")
-        sentiment_chart = filtered_df.groupby('sentiment').size().reset_index(name="count")
-        fig_sentiment = px.bar(sentiment_chart, x='sentiment', y='count', title="Sentiment Distribution of Tasks")
-        st.plotly_chart(fig_sentiment, use_container_width=True)
-
-        # Task Categorization chart
-        st.subheader("Task Categories")
-        category_chart = filtered_df.groupby('task_category')['task'].count().reset_index()
-        fig_category = px.bar(category_chart, x='task_category', y='task', title="Task Categorization by KMeans")
-        st.plotly_chart(fig_category, use_container_width=True)
-
-        # Display top 10 keywords
-        st.subheader("Top 10 Keywords in Tasks")
-        st.write(keywords)
 
 else:
     st.info("Upload one or more CSV files to begin.")
