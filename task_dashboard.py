@@ -2,9 +2,17 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import calplot
+import os
 
+# Page config
 st.set_page_config(page_title="Task Dashboard", layout="wide")
 st.title("🗂️ Task Time Analysis Dashboard")
+
+# Sidebar - Logo and Title
+logo_path = os.path.join("images", "logo.png")
+if os.path.exists(logo_path):
+    st.sidebar.image(logo_path, width=150)
+st.sidebar.markdown("## 📁 Task Dashboard Sidebar")
 
 # Sidebar - Upload multiple CSV files
 uploaded_files = st.sidebar.file_uploader("Upload CSV files", type=["csv"], accept_multiple_files=True)
@@ -26,25 +34,25 @@ if uploaded_files:
     # Sidebar filters
     users = df['user_first_name'].unique()
     locales = df['user_locale'].unique()
-    projects = df['project_id'].unique()  # Assuming 'project_id' exists
+    projects = df['project_id'].unique()
     min_date, max_date = df['date'].min(), df['date'].max()
 
     st.sidebar.subheader("Filter Data")
-    selected_users = st.sidebar.multiselect("User", options=users, default=users)
-    selected_locales = st.sidebar.multiselect("Locale", options=locales, default=locales)
-    selected_projects = st.sidebar.multiselect("Project", options=projects, default=projects)
+    selected_users = st.sidebar.multiselect("User", options=users, default=list(users))
+    selected_locales = st.sidebar.multiselect("Locale", options=locales, default=list(locales))
+    selected_projects = st.sidebar.multiselect("Project", options=projects, default=list(projects))
     selected_dates = st.sidebar.date_input("Date Range", [min_date, max_date])
 
     # Apply filters
     mask = (
         df['user_first_name'].isin(selected_users) &
         df['user_locale'].isin(selected_locales) &
-        df['project_id'].isin(selected_projects) &  # Project filter added
+        df['project_id'].isin(selected_projects) &
         (df['date'] >= selected_dates[0]) & (df['date'] <= selected_dates[1])
     )
     filtered_df = df[mask]
 
-    # Combined Tab 1 & 2
+    # Summary Tables
     st.subheader("Minutes Uploaded by Each User")
     minute_table = filtered_df.groupby(['user_first_name'])['minutes'].sum().reset_index()
     st.dataframe(minute_table, use_container_width=True)
@@ -53,7 +61,7 @@ if uploaded_files:
     user_table = df[['user_first_name', 'user_last_name', 'user_locale']].drop_duplicates().sort_values(by='user_first_name')
     st.dataframe(user_table, use_container_width=True)
 
-    # Tab 3: Dashboard
+    # Dashboard KPIs
     total_minutes = filtered_df['minutes'].sum()
     avg_minutes = filtered_df['minutes'].mean()
     total_tasks = filtered_df.shape[0]
@@ -63,6 +71,7 @@ if uploaded_files:
     col2.metric("Average Time per Task (min)", round(avg_minutes, 2))
     col3.metric("Total Tasks", total_tasks)
 
+    # Charts
     st.markdown("### 📊 Time Spent per User")
     time_chart = filtered_df.groupby('user_first_name')['minutes'].sum().reset_index()
     fig_time = px.bar(time_chart, x='user_first_name', y='minutes', title='Total Minutes per User')
@@ -73,14 +82,15 @@ if uploaded_files:
     fig_date = px.line(date_chart, x='date', y='minutes', markers=True, title='Minutes Logged Over Time')
     st.plotly_chart(fig_date, use_container_width=True)
 
+    # Task Records
     st.markdown("### 📋 Task Records")
     st.dataframe(filtered_df[['date', 'user_first_name', 'user_last_name', 'task', 'minutes']], use_container_width=True)
     st.download_button("📥 Download Filtered Data", data=filtered_df.to_csv(index=False), file_name="filtered_data.csv")
 
-    # Tab 4: Task Type Breakdown
+    # Task Type Breakdown
     st.subheader("Breakdown by Task Type")
     task_summary = filtered_df.groupby('task')['minutes'].sum().reset_index().sort_values(by='minutes', ascending=False)
-    
+
     col1, col2 = st.columns(2)
     with col1:
         fig_pie = px.pie(task_summary, names='task', values='minutes', title="Total Minutes by Task Type")
@@ -89,7 +99,7 @@ if uploaded_files:
         fig_bar = px.bar(task_summary, x='task', y='minutes', title='Total Minutes by Task Type', text_auto=True)
         st.plotly_chart(fig_bar, use_container_width=True)
 
-    # Tab 5: User Drilldown
+    # User Drilldown
     st.subheader("User Drilldown")
     selected_user = st.selectbox("Select User", options=filtered_df['user_first_name'].unique())
     user_df = filtered_df[filtered_df['user_first_name'] == selected_user]
@@ -105,13 +115,13 @@ if uploaded_files:
     st.markdown("### Task History")
     st.dataframe(user_df[['date', 'task', 'minutes']], use_container_width=True)
 
-    # Tab 6: Hourly Time-of-Day Analysis
+    # Hourly Analysis
     st.subheader("Hourly Time-of-Day Analysis")
     hourly_summary = filtered_df.groupby('hour')['minutes'].sum().reset_index()
     fig_hour = px.bar(hourly_summary, x='hour', y='minutes', title="Minutes Logged by Hour of Day")
     st.plotly_chart(fig_hour, use_container_width=True)
 
-    # Tab 7: Calendar Heatmap
+    # Calendar Heatmap
     st.subheader("📅 Calendar Heatmap")
     heatmap_data = filtered_df.groupby('date')['minutes'].sum().reset_index()
     heatmap_data['date'] = pd.to_datetime(heatmap_data['date'])
