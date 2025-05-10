@@ -87,10 +87,10 @@ if uploaded_files:
 
     with tab2:
         st.subheader("Breakdown by Task Type")
-        
-        # User selection for filtering tasks by selected user
+
+        # Select user for filtering the task breakdown
         selected_task_user = st.selectbox("Select User for Task Breakdown", options=["All Users"] + list(filtered_df['user_first_name'].unique()))
-        
+
         if selected_task_user != "All Users":
             task_summary = filtered_df[filtered_df['user_first_name'] == selected_task_user].groupby('task')['minutes'].sum().reset_index().sort_values(by='minutes', ascending=False)
         else:
@@ -127,4 +127,11 @@ if uploaded_files:
         st.plotly_chart(fig_hour, use_container_width=True)
 
     with tab5:
-        st.subheader("📅 Ca
+        st.subheader("📅 Calendar Heatmap")
+        heatmap_data = filtered_df.groupby('date')['minutes'].sum().reset_index()
+        heatmap_data['date'] = pd.to_datetime(heatmap_data['date'])
+        fig, _ = calplot.calplot(heatmap_data.set_index('date')['minutes'], cmap='YlGn', figsize=(16, 8))
+        st.pyplot(fig)
+
+else:
+    st.info("Upload one or more CSV files to begin.")
