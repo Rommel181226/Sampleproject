@@ -1,45 +1,12 @@
 import streamlit as st
 import pandas as pd
-import openai
-import os
 import plotly.express as px
 import calplot
+import openai
+import os
 
-# Set your OpenAI API key from the environment variable
-openai.api_key = os.getenv("OPENAI_API_KEY")
-
-# Function to generate summary using OpenAI API
-def generate_summary(filtered_df):
-    # Get data to summarize
-    total_minutes = filtered_df['minutes'].sum()
-    avg_minutes = filtered_df['minutes'].mean()
-    total_tasks = filtered_df.shape[0]
-
-    user_summary = filtered_df.groupby('user_first_name')['minutes'].sum().reset_index()
-    task_summary = filtered_df.groupby('task')['minutes'].sum().reset_index()
-
-    # Prepare text input for the AI summary
-    prompt = f"""
-    The following data represents task time analysis for various users and tasks:
-    Total time spent: {total_minutes} minutes
-    Average time per task: {round(avg_minutes, 2)} minutes
-    Total tasks recorded: {total_tasks}
-    
-    Users' task times: {user_summary.to_dict(orient='records')}
-    Task breakdown: {task_summary.to_dict(orient='records')}
-    
-    Provide a brief summary of the overall task performance and trends.
-    """
-
-    # Request summary from OpenAI
-    response = openai.Completion.create(
-        engine="text-davinci-003",  # Adjust based on your preferred model
-        prompt=prompt,
-        max_tokens=200
-    )
-
-    # Return the summary text
-    return response.choices[0].text.strip()
+# Set up OpenAI API key
+openai.api_key = "your_openai_api_key"
 
 # Page config
 st.set_page_config(page_title="Task Dashboard", layout="wide")
@@ -82,21 +49,18 @@ if uploaded_files:
 
     # Apply filters
     mask = (
-        df['user_first_name'].isin(selected_users) & 
-        df['user_locale'].isin(selected_locales) & 
-        df['project_id'].isin(selected_projects) & 
+        df['user_first_name'].isin(selected_users) &
+        df['user_locale'].isin(selected_locales) &
+        df['project_id'].isin(selected_projects) &
         (df['date'] >= selected_dates[0]) & (df['date'] <= selected_dates[1])
     )
     filtered_df = df[mask]
 
-    # Tabs for AI Insights and Data Overview
-    st.subheader("Task Dashboard")
+    # Create Tabs
+    tabs = ["Summary", "Charts", "Task Records", "User Drilldown", "Task Type Breakdown", "Hourly Analysis"]
+    selected_tab = st.sidebar.radio("Select Tab", tabs)
 
-    # Create Tabs for Data Overview and AI Insights
-    tab1, tab2 = st.tabs(["Data Overview", "AI Insights"])
-
-    with tab1:
-        # Summary Tables
+    if selected_tab == "Summary":
         st.subheader("Minutes Uploaded by Each User")
         minute_table = filtered_df.groupby(['user_first_name'])['minutes'].sum().reset_index()
         st.dataframe(minute_table, use_container_width=True)
@@ -115,7 +79,7 @@ if uploaded_files:
         col2.metric("Average Time per Task (min)", round(avg_minutes, 2))
         col3.metric("Total Tasks", total_tasks)
 
-        # Charts
+    elif selected_tab == "Charts":
         st.markdown("### 📊 Time Spent per User")
         time_chart = filtered_df.groupby('user_first_name')['minutes'].sum().reset_index()
         fig_time = px.bar(time_chart, x='user_first_name', y='minutes', title='Total Minutes per User')
@@ -126,24 +90,12 @@ if uploaded_files:
         fig_date = px.line(date_chart, x='date', y='minutes', markers=True, title='Minutes Logged Over Time')
         st.plotly_chart(fig_date, use_container_width=True)
 
-        # Task Records
+    elif selected_tab == "Task Records":
         st.markdown("### 📋 Task Records")
         st.dataframe(filtered_df[['date', 'user_first_name', 'user_last_name', 'task', 'minutes']], use_container_width=True)
         st.download_button("📥 Download Filtered Data", data=filtered_df.to_csv(index=False), file_name="filtered_data.csv")
 
-        # Task Type Breakdown
-        st.subheader("Breakdown by Task Type")
-        task_summary = filtered_df.groupby('task')['minutes'].sum().reset_index().sort_values(by='minutes', ascending=False)
-
-        col1, col2 = st.columns(2)
-        with col1:
-            fig_pie = px.pie(task_summary, names='task', values='minutes', title="Total Minutes by Task Type")
-            st.plotly_chart(fig_pie, use_container_width=True)
-        with col2:
-            fig_bar = px.bar(task_summary, x='task', y='minutes', title='Total Minutes by Task Type', text_auto=True)
-            st.plotly_chart(fig_bar, use_container_width=True)
-
-        # User Drilldown
+    elif selected_tab == "User Drilldown":
         st.subheader("User Drilldown")
         selected_user = st.selectbox("Select User", options=filtered_df['user_first_name'].unique())
         user_df = filtered_df[filtered_df['user_first_name'] == selected_user]
@@ -159,24 +111,43 @@ if uploaded_files:
         st.markdown("### Task History")
         st.dataframe(user_df[['date', 'task', 'minutes']], use_container_width=True)
 
-        # Hourly Analysis
+    elif selected_tab == "Task Type Breakdown":
+        st.subheader("Breakdown by Task Type")
+        task_summary = filtered_df.groupby('task')['minutes'].sum().reset_index().sort_values(by='minutes', ascending=False)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            fig_pie = px.pie(task_summary, names='task', values='minutes', title="Total Minutes by Task Type")
+            st.plotly_chart(fig_pie, use_container_width=True)
+        with col2:
+            fig_bar = px.bar(task_summary, x='task', y='minutes', title='Total Minutes by Task Type', text_auto=True)
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+    elif selected_tab == "Hourly Analysis":
         st.subheader("Hourly Time-of-Day Analysis")
         hourly_summary = filtered_df.groupby('hour')['minutes'].sum().reset_index()
         fig_hour = px.bar(hourly_summary, x='hour', y='minutes', title="Minutes Logged by Hour of Day")
         st.plotly_chart(fig_hour, use_container_width=True)
 
-        # Calendar Heatmap
-        st.subheader("📅 Calendar Heatmap")
-        heatmap_data = filtered_df.groupby('date')['minutes'].sum().reset_index()
-        heatmap_data['date'] = pd.to_datetime(heatmap_data['date'])
-        fig, _ = calplot.calplot(heatmap_data.set_index('date')['minutes'], cmap='YlGn', figsize=(16, 8))
-        st.pyplot(fig)
+    # Calendar Heatmap
+    st.subheader("📅 Calendar Heatmap")
+    heatmap_data = filtered_df.groupby('date')['minutes'].sum().reset_index()
+    heatmap_data['date'] = pd.to_datetime(heatmap_data['date'])
+    fig, _ = calplot.calplot(heatmap_data.set_index('date')['minutes'], cmap='YlGn', figsize=(16, 8))
+    st.pyplot(fig)
 
-    with tab2:
-        # Generate the AI summary
-        st.subheader("AI-Generated Insights")
-        summary = generate_summary(filtered_df)
-        st.write(summary)
-
+    # OpenAI API for Explanation (based on filtered data)
+    st.subheader("AI-Based Data Explanation")
+    prompt = f"Explain the following filtered task data summary:\n{filtered_df.describe(include='all')}"
+    try:
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=prompt,
+            max_tokens=300
+        )
+        explanation = response.choices[0].text.strip()
+        st.write(explanation)
+    except Exception as e:
+        st.error(f"Error fetching explanation: {e}")
 else:
     st.info("Upload one or more CSV files to begin.")
