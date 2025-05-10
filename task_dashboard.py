@@ -2,19 +2,14 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import calplot
-import os
+import matplotlib.pyplot as plt
 
-# Page config
 st.set_page_config(page_title="Task Dashboard", layout="wide")
 st.title("🗂️ Task Time Analysis Dashboard")
 
-# Sidebar - Logo and Title
-logo_path = os.path.join("images", "logo.png")
-if os.path.exists(logo_path):
-    st.sidebar.image(logo_path, width=150)
-st.sidebar.markdown("## 📁 Task Dashboard Sidebar")
-
 # Sidebar - Upload multiple CSV files
+st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/3/3f/Logo.svg", use_column_width=True)
+st.sidebar.title("Task Dashboard")
 uploaded_files = st.sidebar.file_uploader("Upload CSV files", type=["csv"], accept_multiple_files=True)
 
 @st.cache_data
@@ -38,9 +33,9 @@ if uploaded_files:
     min_date, max_date = df['date'].min(), df['date'].max()
 
     st.sidebar.subheader("Filter Data")
-    selected_users = st.sidebar.multiselect("User", options=users, default=list(users))
-    selected_locales = st.sidebar.multiselect("Locale", options=locales, default=list(locales))
-    selected_projects = st.sidebar.multiselect("Project", options=projects, default=list(projects))
+    selected_users = st.sidebar.multiselect("User", options=users, default=users)
+    selected_locales = st.sidebar.multiselect("Locale", options=locales, default=locales)
+    selected_projects = st.sidebar.multiselect("Project", options=projects, default=projects)
     selected_dates = st.sidebar.date_input("Date Range", [min_date, max_date])
 
     # Apply filters
@@ -52,30 +47,34 @@ if uploaded_files:
     )
     filtered_df = df[mask]
 
-    # Tabs for dashboard sections
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "📊 Overview", "📋 Task Records", "🧠 Task Types",
-        "👤 User Drilldown", "⏰ Hourly Analysis", "📅 Calendar Heatmap"
-    ])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+        "📊 Overview", "📋 Task Types", "👤 User Drilldown", "⏰ Hourly Analysis", "📅 Calendar", "📥 Export", "📁 Raw Data"])
 
     # --- Overview Tab ---
     with tab1:
-        st.subheader("Minutes Uploaded by Each User")
-        minute_table = filtered_df.groupby(['user_first_name'])['minutes'].sum().reset_index()
-        st.dataframe(minute_table, use_container_width=True)
+        st.subheader("📊 Overview")
 
-        st.subheader("User List")
-        user_table = df[['user_first_name', 'user_last_name', 'user_locale']].drop_duplicates().sort_values(by='user_first_name')
-        st.dataframe(user_table, use_container_width=True)
-
+        # Summary Table
         total_minutes = filtered_df['minutes'].sum()
         avg_minutes = filtered_df['minutes'].mean()
         total_tasks = filtered_df.shape[0]
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Time Spent (min)", total_minutes)
-        col2.metric("Average Time per Task (min)", round(avg_minutes, 2))
-        col3.metric("Total Tasks", total_tasks)
+        summary_df = pd.DataFrame({
+            "Total Time Spent (min)": [total_minutes],
+            "Average Time per Task (min)": [round(avg_minutes, 2)],
+            "Total Tasks": [total_tasks]
+        })
+
+        st.markdown("### Summary Metrics")
+        st.dataframe(summary_df, use_container_width=True)
+
+        st.markdown("### Minutes Uploaded by Each User")
+        minute_table = filtered_df.groupby(['user_first_name'])['minutes'].sum().reset_index()
+        st.dataframe(minute_table, use_container_width=True)
+
+        st.markdown("### User List")
+        user_table = df[['user_first_name', 'user_last_name', 'user_locale']].drop_duplicates().sort_values(by='user_first_name')
+        st.dataframe(user_table, use_container_width=True)
 
         st.markdown("### Time Spent per User")
         time_chart = filtered_df.groupby('user_first_name')['minutes'].sum().reset_index()
@@ -87,17 +86,10 @@ if uploaded_files:
         fig_date = px.line(date_chart, x='date', y='minutes', markers=True, title='Minutes Logged Over Time')
         st.plotly_chart(fig_date, use_container_width=True)
 
-    # --- Task Records Tab ---
+    # --- Task Type Breakdown ---
     with tab2:
-        st.subheader("📋 Task Records")
-        st.dataframe(filtered_df[['date', 'user_first_name', 'user_last_name', 'task', 'minutes']], use_container_width=True)
-        st.download_button("📥 Download Filtered Data", data=filtered_df.to_csv(index=False), file_name="filtered_data.csv")
-
-    # --- Task Type Breakdown Tab ---
-    with tab3:
-        st.subheader("Breakdown by Task Type")
+        st.subheader("📋 Task Type Breakdown")
         task_summary = filtered_df.groupby('task')['minutes'].sum().reset_index().sort_values(by='minutes', ascending=False)
-
         col1, col2 = st.columns(2)
         with col1:
             fig_pie = px.pie(task_summary, names='task', values='minutes', title="Total Minutes by Task Type")
@@ -106,9 +98,9 @@ if uploaded_files:
             fig_bar = px.bar(task_summary, x='task', y='minutes', title='Total Minutes by Task Type', text_auto=True)
             st.plotly_chart(fig_bar, use_container_width=True)
 
-    # --- User Drilldown Tab ---
-    with tab4:
-        st.subheader("User Drilldown")
+    # --- User Drilldown ---
+    with tab3:
+        st.subheader("👤 User Drilldown")
         selected_user = st.selectbox("Select User", options=filtered_df['user_first_name'].unique())
         user_df = filtered_df[filtered_df['user_first_name'] == selected_user]
 
@@ -123,20 +115,30 @@ if uploaded_files:
         st.markdown("### Task History")
         st.dataframe(user_df[['date', 'task', 'minutes']], use_container_width=True)
 
-    # --- Hourly Analysis Tab ---
-    with tab5:
-        st.subheader("Hourly Time-of-Day Analysis")
+    # --- Hourly Time-of-Day Analysis ---
+    with tab4:
+        st.subheader("⏰ Hourly Time-of-Day Analysis")
         hourly_summary = filtered_df.groupby('hour')['minutes'].sum().reset_index()
         fig_hour = px.bar(hourly_summary, x='hour', y='minutes', title="Minutes Logged by Hour of Day")
         st.plotly_chart(fig_hour, use_container_width=True)
 
-    # --- Calendar Heatmap Tab ---
-    with tab6:
+    # --- Calendar Heatmap ---
+    with tab5:
         st.subheader("📅 Calendar Heatmap")
         heatmap_data = filtered_df.groupby('date')['minutes'].sum().reset_index()
         heatmap_data['date'] = pd.to_datetime(heatmap_data['date'])
         fig, _ = calplot.calplot(heatmap_data.set_index('date')['minutes'], cmap='YlGn', figsize=(16, 8))
         st.pyplot(fig)
+
+    # --- Download Tab ---
+    with tab6:
+        st.subheader("📥 Export Filtered Data")
+        st.download_button("📥 Download Filtered Data", data=filtered_df.to_csv(index=False), file_name="filtered_data.csv")
+
+    # --- Raw Data Tab ---
+    with tab7:
+        st.subheader("📁 Raw Data View")
+        st.dataframe(filtered_df, use_container_width=True)
 
 else:
     st.info("Upload one or more CSV files to begin.")
