@@ -3,3 +3,4 @@ pandas
 plotly
 calplot
 matplotlib  # calplot depends on matplotlib for plotting
+openai==0.27.0
