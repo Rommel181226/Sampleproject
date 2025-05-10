@@ -118,45 +118,4 @@ if uploaded_files:
     with tab4:
         st.subheader("⏰ Hourly Time-of-Day Analysis")
 
-        st.markdown("### ⌛ Total Minutes Logged by Hour")
-        hourly_summary = filtered_df.groupby('hour')['minutes'].sum().reset_index()
-        fig_hour = px.bar(hourly_summary, x='hour', y='minutes',
-                          labels={'hour': 'Hour of Day', 'minutes': 'Total Minutes'},
-                          title="Total Minutes Logged by Hour of Day",
-                          text_auto=True)
-        st.plotly_chart(fig_hour, use_container_width=True)
-
-        # Filter for Specific Hour Range
-        selected_hour_range = st.slider("Select Hour Range", min_value=0, max_value=23, value=(0, 23), step=1)
-        filtered_by_hour = hourly_summary[(hourly_summary['hour'] >= selected_hour_range[0]) & 
-                                          (hourly_summary['hour'] <= selected_hour_range[1])]
-        st.markdown(f"### ⏰ Minutes Logged Between {selected_hour_range[0]}:00 and {selected_hour_range[1]}:00")
-        st.bar_chart(filtered_by_hour.set_index('hour')['minutes'])
-
-        # Task Type Activity by Hour
-        st.markdown("### 🧩 Task Type Activity by Hour")
-        task_hour_summary = filtered_df.groupby(['hour', 'task'])['minutes'].sum().reset_index()
-        selected_task_type = st.selectbox("Select Task Type", options=filtered_df['task'].unique())
-        filtered_task_type = task_hour_summary[task_hour_summary['task'] == selected_task_type]
-
-        fig_task_hour = px.bar(filtered_task_type, x='hour', y='minutes', 
-                               title=f"Minutes Spent on {selected_task_type} by Hour",
-                               labels={'hour': 'Hour of Day', 'minutes': 'Minutes'},
-                               text_auto=True)
-        st.plotly_chart(fig_task_hour, use_container_width=True)
-
-        # Highlight Hourly Heatmap (Optional for Overview)
-        st.markdown("### 🔥 Hourly Heatmap (Activity by Hour and User)")
-        pivot_heatmap = filtered_df.pivot_table(index='user_first_name', columns='hour', values='minutes', aggfunc='sum').fillna(0)
-        st.dataframe(pivot_heatmap.style.background_gradient(cmap='YlGnBu', axis=1),
-                     use_container_width=True)
-
-    with tab5:
-        st.subheader("📅 Calendar Heatmap")
-        heatmap_data = filtered_df.groupby('date')['minutes'].sum().reset_index()
-        heatmap_data['date'] = pd.to_datetime(heatmap_data['date'])
-        fig, _ = calplot.calplot(heatmap_data.set_index('date')['minutes'], cmap='YlGn', figsize=(16, 8))
-        st.pyplot(fig)
-
-else:
-    st.info("Upload one or more CSV files to begin.")
+        st.markdown("### ⌛ Total
