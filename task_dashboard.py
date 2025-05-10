@@ -118,4 +118,29 @@ if uploaded_files:
     with tab4:
         st.subheader("⏰ Hourly Time-of-Day Analysis")
 
-        st.markdown("### ⌛ Total
+        st.markdown("### ⌛ Total Minutes Logged by Hour")
+        hourly_summary = filtered_df.groupby('hour')['minutes'].sum().reset_index()
+        
+        # Plot total minutes per hour
+        fig_hour = px.bar(hourly_summary, x='hour', y='minutes',
+                          labels={'hour': 'Hour of Day', 'minutes': 'Total Minutes'},
+                          title="Total Minutes Logged by Hour of Day",
+                          text_auto=True)
+        st.plotly_chart(fig_hour, use_container_width=True)
+
+        # Select hour range for detailed view
+        selected_hour_range = st.slider("Select Hour Range", min_value=0, max_value=23, value=(0, 23), step=1)
+        filtered_by_hour = hourly_summary[(hourly_summary['hour'] >= selected_hour_range[0]) & 
+                                          (hourly_summary['hour'] <= selected_hour_range[1])]
+        st.markdown(f"### ⏰ Minutes Logged Between {selected_hour_range[0]}:00 and {selected_hour_range[1]}:00")
+        st.bar_chart(filtered_by_hour.set_index('hour')['minutes'])
+
+    with tab5:
+        st.subheader("📅 Calendar Heatmap")
+        heatmap_data = filtered_df.groupby('date')['minutes'].sum().reset_index()
+        heatmap_data['date'] = pd.to_datetime(heatmap_data['date'])
+        fig, _ = calplot.calplot(heatmap_data.set_index('date')['minutes'], cmap='YlGn', figsize=(16, 8))
+        st.pyplot(fig)
+
+else:
+    st.info("Upload one or more CSV files to begin.")
