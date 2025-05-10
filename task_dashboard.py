@@ -3,10 +3,6 @@ import pandas as pd
 import plotly.express as px
 import calplot
 import os
-import openai
-
-# --- Setup: API Key ---
-openai.api_key = st.secrets["OPENAI_API_KEY"]  # Add this key to .streamlit/secrets.toml
 
 # --- Page Config ---
 st.set_page_config(page_title="Task Dashboard", layout="wide")
@@ -30,25 +26,6 @@ def load_all_data(files):
         df['hour'] = df['started_at'].dt.hour
         combined.append(df)
     return pd.concat(combined, ignore_index=True)
-
-def generate_ai_summary(df):
-    prompt = f"""You are an analytical assistant. Based on the following filtered task data, provide a concise summary:
-
-    {df[['user_first_name', 'task', 'minutes', 'date']].to_string(index=False)}
-
-    Focus on identifying which users spent the most time, the most common tasks, total time, average time, and any notable trends.
-    """
-
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.5,
-            max_tokens=300
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"⚠️ AI Summary Error: {e}"
 
 if uploaded_files:
     df = load_all_data(uploaded_files)
@@ -74,7 +51,7 @@ if uploaded_files:
     filtered_df = df[mask]
 
     # --- Tabs ---
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 Summary", "📋 Task Types", "👤 User Drilldown", "⏰ Hourly", "📅 Calendar", "🔍 AI Insights"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Summary", "📋 Task Types", "👤 User Drilldown", "⏰ Hourly", "📅 Calendar"])
 
     with tab1:
         st.subheader("Minutes Uploaded by Each User")
@@ -149,15 +126,5 @@ if uploaded_files:
         fig, _ = calplot.calplot(heatmap_data.set_index('date')['minutes'], cmap='YlGn', figsize=(16, 8))
         st.pyplot(fig)
 
-    with tab6:
-        st.header("🔍 AI Insights")
-        if not filtered_df.empty:
-            if st.button("Generate Summary"):
-                with st.spinner("Analyzing..."):
-                    summary = generate_ai_summary(filtered_df)
-                st.success("AI Summary:")
-                st.markdown(summary)
-        else:
-            st.info("No data to analyze. Please adjust the filters.")
 else:
     st.info("Upload one or more CSV files to begin.")
