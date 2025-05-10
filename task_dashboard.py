@@ -76,12 +76,14 @@ if uploaded_files:
         st.plotly_chart(fig_date, use_container_width=True)
 
         st.markdown("### 📋 Task Records")
-        st.dataframe(filtered_df[['date', 'user_first_name', 'user_last_name', 'task', 'minutes']], use_container_width=True)
+        task_cols = ['date', 'started_at', 'hour', 'user_first_name', 'user_last_name', 'user_locale', 'task', 'minutes', 'project_id']
+        display_cols = [col for col in task_cols if col in filtered_df.columns]
+        st.dataframe(filtered_df[display_cols], use_container_width=True)
+
         st.download_button("📥 Download Filtered Data", data=filtered_df.to_csv(index=False), file_name="filtered_data.csv")
 
     with tab2:
         st.subheader("Breakdown by Task Type")
-
         selected_task_user = st.selectbox("Select User for Task Breakdown", options=["All Users"] + list(filtered_df['user_first_name'].unique()))
 
         if selected_task_user != "All Users":
@@ -97,26 +99,6 @@ if uploaded_files:
             fig_bar = px.bar(task_summary, x='task', y='minutes', title='Total Minutes by Task Type', text_auto=True)
             st.plotly_chart(fig_bar, use_container_width=True)
 
-        st.markdown("### 📋 Complete Task Records by Type")
-        task_detail_columns = [
-            'date', 'started_at', 'hour', 'user_first_name', 'user_last_name',
-            'user_locale', 'project_id', 'task', 'minutes'
-        ]
-        cols_exist = [col for col in task_detail_columns if col in filtered_df.columns]
-
-        if selected_task_user != "All Users":
-            display_df = filtered_df[filtered_df['user_first_name'] == selected_task_user]
-        else:
-            display_df = filtered_df
-
-        st.dataframe(display_df[cols_exist].sort_values(by=['date', 'started_at']), use_container_width=True)
-
-        st.download_button(
-            "📥 Download Complete Task Records",
-            data=display_df[cols_exist].to_csv(index=False),
-            file_name="complete_task_records.csv"
-        )
-
     with tab3:
         st.subheader("User Drilldown")
         selected_user = st.selectbox("Select User", options=filtered_df['user_first_name'].unique())
@@ -130,25 +112,37 @@ if uploaded_files:
         fig_user = px.bar(user_chart, x='task', y='minutes', title=f"Task Breakdown for {selected_user}")
         st.plotly_chart(fig_user, use_container_width=True)
 
-        st.markdown("### 📋 Detailed Task History")
-        drilldown_cols = [
-            'date', 'started_at', 'hour', 'user_locale', 'project_id', 'task', 'minutes'
-        ]
-        cols_present = [col for col in drilldown_cols if col in user_df.columns]
-
-        st.dataframe(user_df[cols_present].sort_values(by=['date', 'started_at']), use_container_width=True)
-
-        st.download_button(
-            "📥 Download User Task History",
-            data=user_df[cols_present].to_csv(index=False),
-            file_name=f"{selected_user.lower()}_task_history.csv"
-        )
+        st.markdown("### Task History")
+        st.dataframe(user_df[['date', 'task', 'minutes']], use_container_width=True)
 
     with tab4:
-        st.subheader("Hourly Time-of-Day Analysis")
+        st.subheader("⏰ Hourly Time-of-Day Analysis")
+
+        st.markdown("### ⌛ Total Minutes Logged by Hour")
         hourly_summary = filtered_df.groupby('hour')['minutes'].sum().reset_index()
-        fig_hour = px.bar(hourly_summary, x='hour', y='minutes', title="Minutes Logged by Hour of Day")
+        fig_hour = px.bar(hourly_summary, x='hour', y='minutes',
+                          labels={'hour': 'Hour of Day', 'minutes': 'Total Minutes'},
+                          title="Total Minutes Logged by Hour of Day")
         st.plotly_chart(fig_hour, use_container_width=True)
+
+        st.markdown("### 👥 User Activity by Hour")
+        user_hour_summary = filtered_df.groupby(['hour', 'user_first_name'])['minutes'].sum().reset_index()
+        fig_user_hour = px.bar(user_hour_summary, x='hour', y='minutes', color='user_first_name',
+                               title='Minutes per Hour by User', barmode='group',
+                               labels={'user_first_name': 'User'})
+        st.plotly_chart(fig_user_hour, use_container_width=True)
+
+        st.markdown("### 🧩 Task Type by Hour")
+        task_hour_summary = filtered_df.groupby(['hour', 'task'])['minutes'].sum().reset_index()
+        fig_task_hour = px.bar(task_hour_summary, x='hour', y='minutes', color='task',
+                               title='Minutes per Hour by Task Type', barmode='stack',
+                               labels={'task': 'Task'})
+        st.plotly_chart(fig_task_hour, use_container_width=True)
+
+        st.markdown("### 🔥 Hourly Heatmap")
+        pivot_heatmap = filtered_df.pivot_table(index='user_first_name', columns='hour', values='minutes', aggfunc='sum').fillna(0)
+        st.dataframe(pivot_heatmap.style.background_gradient(cmap='YlGnBu', axis=1),
+                     use_container_width=True)
 
     with tab5:
         st.subheader("📅 Calendar Heatmap")
