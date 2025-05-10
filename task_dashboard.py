@@ -5,17 +5,19 @@ import calplot
 import os
 import openai
 
-# Page config
+# --- Setup: API Key ---
+openai.api_key = st.secrets["OPENAI_API_KEY"]  # Add this key to .streamlit/secrets.toml
+
+# --- Page Config ---
 st.set_page_config(page_title="Task Dashboard", layout="wide")
 st.title("🗂️ Task Time Analysis Dashboard")
 
-# Sidebar - Logo and Title
+# --- Sidebar: Logo and Upload ---
 logo_path = os.path.join("images", "logo.png")
 if os.path.exists(logo_path):
     st.sidebar.image(logo_path, width=150)
 st.sidebar.markdown("## 📁 Task Dashboard Sidebar")
 
-# Sidebar - Upload multiple CSV files
 uploaded_files = st.sidebar.file_uploader("Upload CSV files", type=["csv"], accept_multiple_files=True)
 
 @st.cache_data
@@ -29,35 +31,29 @@ def load_all_data(files):
         combined.append(df)
     return pd.concat(combined, ignore_index=True)
 
-def generate_ai_summary(df, tone="Analytical"):
-    df['week'] = pd.to_datetime(df['date']).dt.isocalendar().week
-    prompt = f"""
-You are a smart assistant summarizing task productivity data. Use a {tone.lower()} tone. 
-Analyze the data below and write a concise, clear summary. Include:
+def generate_ai_summary(df):
+    prompt = f"""You are an analytical assistant. Based on the following filtered task data, provide a concise summary:
 
-- Top users based on total time
-- Most common and most time-consuming tasks
-- Total time and average time per task
-- Any patterns or trends across days or weeks
-- Week-over-week increases or decreases in activity
+    {df[['user_first_name', 'task', 'minutes', 'date']].to_string(index=False)}
 
-Data:
-{df[['user_first_name', 'task', 'minutes', 'date']].to_string(index=False)}
-"""
+    Focus on identifying which users spent the most time, the most common tasks, total time, average time, and any notable trends.
+    """
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.3,
-        max_tokens=400
-    )
-    
-    return response.choices[0].message.content
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5,
+            max_tokens=300
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"⚠️ AI Summary Error: {e}"
 
 if uploaded_files:
     df = load_all_data(uploaded_files)
 
-    # Sidebar filters
+    # --- Sidebar Filters ---
     users = df['user_first_name'].unique()
     locales = df['user_locale'].unique()
     projects = df['project_id'].unique()
@@ -69,7 +65,6 @@ if uploaded_files:
     selected_projects = st.sidebar.multiselect("Project", options=projects, default=list(projects))
     selected_dates = st.sidebar.date_input("Date Range", [min_date, max_date])
 
-    # Apply filters
     mask = (
         df['user_first_name'].isin(selected_users) &
         df['user_locale'].isin(selected_locales) &
@@ -78,7 +73,7 @@ if uploaded_files:
     )
     filtered_df = df[mask]
 
-    # Tabs
+    # --- Tabs ---
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["📊 Summary", "📋 Task Types", "👤 User Drilldown", "⏰ Hourly", "📅 Calendar", "🔍 AI Insights"])
 
     with tab1:
@@ -157,13 +152,11 @@ if uploaded_files:
     with tab6:
         st.header("🔍 AI Insights")
         if not filtered_df.empty:
-            st.markdown("Choose Summary Tone:")
-            tone_option = st.selectbox("Tone", ["Analytical", "Formal", "Casual"])
             if st.button("Generate Summary"):
-                with st.spinner("Analyzing with AI..."):
-                    summary = generate_ai_summary(filtered_df, tone=tone_option)
+                with st.spinner("Analyzing..."):
+                    summary = generate_ai_summary(filtered_df)
                 st.success("AI Summary:")
-                st.write(summary)
+                st.markdown(summary)
         else:
             st.info("No data to analyze. Please adjust the filters.")
 else:
