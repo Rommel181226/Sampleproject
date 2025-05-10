@@ -1,5 +1,5 @@
-streamlit
-pandas
-plotly
-altair
-calplot
+streamlit==1.18.0
+pandas==1.5.3
+openai==0.27.0
+plotly==5.14.0
+calplot==0.2.1
