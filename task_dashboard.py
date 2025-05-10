@@ -32,14 +32,10 @@ if uploaded_files:
 
     # --- Sidebar Filters ---
     users = df['user_first_name'].unique()
-    locales = df['user_locale'].unique()
-    projects = df['project_id'].unique()
     min_date, max_date = df['date'].min(), df['date'].max()
 
     st.sidebar.subheader("Filter Data")
     selected_users = st.sidebar.multiselect("User", options=users, default=list(users))
-    selected_locales = st.sidebar.multiselect("Locale", options=locales, default=list(locales))
-    selected_projects = st.sidebar.multiselect("Project", options=projects, default=list(projects))
     selected_dates = st.sidebar.date_input("Date Range", [min_date, max_date])
 
     mask = (
