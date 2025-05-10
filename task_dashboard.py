@@ -29,21 +29,29 @@ def load_all_data(files):
         combined.append(df)
     return pd.concat(combined, ignore_index=True)
 
-def generate_ai_summary(df):
-    prompt = f"""You are an analytical assistant. Based on the following filtered task data, provide a concise summary:
+def generate_ai_summary(df, tone="Analytical"):
+    df['week'] = pd.to_datetime(df['date']).dt.isocalendar().week
+    prompt = f"""
+You are a smart assistant summarizing task productivity data. Use a {tone.lower()} tone. 
+Analyze the data below and write a concise, clear summary. Include:
 
-    {df[['user_first_name', 'task', 'minutes', 'date']].to_string(index=False)}
+- Top users based on total time
+- Most common and most time-consuming tasks
+- Total time and average time per task
+- Any patterns or trends across days or weeks
+- Week-over-week increases or decreases in activity
 
-    Focus on identifying which users spent the most time, the most common tasks, total time, average time, and any notable trends.
-    """
+Data:
+{df[['user_first_name', 'task', 'minutes', 'date']].to_string(index=False)}
+"""
 
     response = openai.ChatCompletion.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.5,
-        max_tokens=300
+        temperature=0.3,
+        max_tokens=400
     )
-
+    
     return response.choices[0].message.content
 
 if uploaded_files:
@@ -149,9 +157,11 @@ if uploaded_files:
     with tab6:
         st.header("🔍 AI Insights")
         if not filtered_df.empty:
+            st.markdown("Choose Summary Tone:")
+            tone_option = st.selectbox("Tone", ["Analytical", "Formal", "Casual"])
             if st.button("Generate Summary"):
-                with st.spinner("Analyzing..."):
-                    summary = generate_ai_summary(filtered_df)
+                with st.spinner("Analyzing with AI..."):
+                    summary = generate_ai_summary(filtered_df, tone=tone_option)
                 st.success("AI Summary:")
                 st.write(summary)
         else:
