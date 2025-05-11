@@ -1,14 +1,16 @@
-# task_dashboard.py
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import calplot
 import os
+from dotenv import load_dotenv
 from openai import OpenAI
+from io import StringIO
+import matplotlib.pyplot as plt
 
-os.environ["OPENAI_API_KEY"] = "your-api-key-here"  # or use a .env loader
-
-client = OpenAI()
+# Load API key from .env file
+load_dotenv()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Page config
 st.set_page_config(page_title="Task Dashboard", layout="wide")
@@ -34,26 +36,6 @@ def load_all_data(files):
         combined.append(df)
     return pd.concat(combined, ignore_index=True)
 
-def generate_summary(filtered_data):
-    prompt = (
-        f"Provide a brief, professional summary for task time analytics based on this data:\n\n"
-        f"{filtered_data[['user_first_name', 'task', 'minutes', 'date']].head(20).to_csv(index=False)}\n\n"
-        "Summarize trends, top users, and task types in a few sentences."
-    )
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a data analyst."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.6,
-            max_tokens=150
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        return f"Error generating summary: {e}"
-
 if uploaded_files:
     df = load_all_data(uploaded_files)
 
@@ -78,10 +60,11 @@ if uploaded_files:
     )
     filtered_df = df[mask]
 
+    # Tabs for views
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         "📊 Summary", "📈 Visualizations", "📋 Task Records",
-        "👤 User Drilldown", "⏰ Hourly Analysis", "🗓️ Calendar Heatmap",
-        "🔍 AI Summary", "📂 All Data Compilation"
+        "👤 User Drilldown", "⏰ Hourly Analysis", "📅 Calendar Heatmap",
+        "📄 Summary Comment", "🗂️ File Compilation"
     ])
 
     with tab1:
@@ -127,7 +110,7 @@ if uploaded_files:
     with tab3:
         st.markdown("### Task Records")
         st.dataframe(filtered_df[['date', 'user_first_name', 'user_last_name', 'task', 'minutes']], use_container_width=True)
-        st.download_button("👅 Download Filtered Data", data=filtered_df.to_csv(index=False), file_name="filtered_data.csv")
+        st.download_button("📥 Download Filtered Data", data=filtered_df.to_csv(index=False), file_name="filtered_data.csv")
 
     with tab4:
         st.subheader("User Drilldown")
@@ -159,14 +142,29 @@ if uploaded_files:
         st.pyplot(fig)
 
     with tab7:
-        st.subheader("AI-Generated Summary")
-        summary = generate_summary(filtered_df)
-        st.write(summary)
+        st.subheader("📄 AI-Generated Summary of Filtered Data")
+        try:
+            sample_summary = filtered_df.groupby('user_first_name')['minutes'].sum().reset_index().to_string(index=False)
+
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are a data analyst that summarizes task time logs."},
+                    {"role": "user", "content": f"Generate a short summary based on this data:\n{sample_summary}"}
+                ],
+                temperature=0.7,
+                max_tokens=300
+            )
+
+            summary_text = response.choices[0].message.content
+            st.markdown("#### 📌 Summary:")
+            st.write(summary_text)
+        except Exception as e:
+            st.error(f"Error generating summary:\n\n{e}")
 
     with tab8:
-        st.subheader("All Uploaded Data Compilation")
+        st.subheader("🗂️ Compiled View of All Uploaded Files")
         st.dataframe(df, use_container_width=True)
-        st.download_button("📄 Download All Data", data=df.to_csv(index=False), file_name="all_data.csv")
 
 else:
     st.info("Upload one or more CSV files to begin.")
