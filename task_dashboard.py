@@ -4,13 +4,6 @@ import plotly.express as px
 import calplot
 import os
 import openai
-from dotenv import load_dotenv
-
-# Load environment variables from .env
-load_dotenv()
-
-# Set up OpenAI API key from environment variable
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Page config
 st.set_page_config(page_title="Task Dashboard", layout="wide")
@@ -35,6 +28,35 @@ def load_all_data(files):
         df['hour'] = df['started_at'].dt.hour
         combined.append(df)
     return pd.concat(combined, ignore_index=True)
+
+def generate_summary_comment(df):
+    try:
+        user_summary = df.groupby('user_first_name')['minutes'].sum().reset_index()
+        top_user = user_summary.sort_values(by='minutes', ascending=False).iloc[0]
+        total_minutes = df['minutes'].sum()
+        avg_minutes = df['minutes'].mean()
+
+        prompt = (
+            f"The dataset contains filtered task performance data.\n"
+            f"Total minutes logged: {total_minutes:.0f}\n"
+            f"Average minutes per task: {avg_minutes:.2f}\n"
+            f"Top contributor: {top_user['user_first_name']} with {top_user['minutes']} minutes.\n"
+            f"Generate a professional one-paragraph summary comment highlighting key insights."
+        )
+
+        openai.api_key = st.secrets["OPENAI_API_KEY"]
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are an expert data analyst."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=150,
+            temperature=0.7
+        )
+        return response['choices'][0]['message']['content']
+    except Exception as e:
+        return f"❌ Error generating comment: {e}"
 
 if uploaded_files:
     df = load_all_data(uploaded_files)
@@ -63,7 +85,8 @@ if uploaded_files:
     # Tabs for different views
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "📊 Summary", "📈 Visualizations", "📋 Task Records",
-        "👤 User Drilldown", "⏰ Hourly Analysis", "📅 Calendar Heatmap", "📄 Compiled View"
+        "👤 User Drilldown", "⏰ Hourly Analysis", "📅 Calendar Heatmap",
+        "🧠 AI Summary"
     ])
 
     with tab1:
@@ -141,25 +164,9 @@ if uploaded_files:
         st.pyplot(fig)
 
     with tab7:
-        st.subheader("Compiled View of All Uploaded Files")
-        combined_df = load_all_data(uploaded_files)
-        st.dataframe(combined_df, use_container_width=True)
-
-        st.download_button("📥 Download All Files Combined", data=combined_df.to_csv(index=False), file_name="combined_data.csv")
-
-    # Generate AI Summary based on filtered data
-    try:
-        user_summary = filtered_df.describe(include='all').to_string()
-        response = openai.Completion.create(
-            engine="text-davinci-003",
-            prompt=f"Based on the following user summary, generate a performance summary comment:\n{user_summary}",
-            max_tokens=150
-        )
-        generated_comment = response.choices[0].text.strip()
-        st.write("AI-Generated Summary Comment:")
-        st.write(generated_comment)
-    except openai.error.OpenAIError as e:
-        st.error(f"Error generating summary: {e}")
+        st.subheader("AI-Generated Summary of Filtered Data")
+        comment = generate_summary_comment(filtered_df)
+        st.markdown(comment)
 
 else:
     st.info("Upload one or more CSV files to begin.")
