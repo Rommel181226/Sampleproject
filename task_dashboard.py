@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 # Load API key from .env file
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+print("API Key:", os.getenv("OPENAI_API_KEY"))
 
 # Page config
 st.set_page_config(page_title="Task Dashboard", layout="wide")
