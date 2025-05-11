@@ -3,16 +3,17 @@ import pandas as pd
 import plotly.express as px
 import calplot
 import os
-from dotenv import load_dotenv
 import openai
+from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables from .env
 load_dotenv()
 
-# Set page configuration (this must be the first Streamlit command)
-st.set_page_config(page_title="Task Dashboard", layout="wide")
+# Set up OpenAI API key from environment variable
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Page title
+# Page config
+st.set_page_config(page_title="Task Dashboard", layout="wide")
 st.title("🗂️ Task Time Analysis Dashboard")
 
 # Sidebar - Logo and Title
@@ -60,9 +61,9 @@ if uploaded_files:
     filtered_df = df[mask]
 
     # Tabs for different views
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "📊 Summary", "📈 Visualizations", "📋 Task Records",
-        "👤 User Drilldown", "⏰ Hourly Analysis", "📅 Calendar Heatmap", "💬 Summary Comment", "📑 Compiled View"
+        "👤 User Drilldown", "⏰ Hourly Analysis", "📅 Calendar Heatmap", "📄 Compiled View"
     ])
 
     with tab1:
@@ -140,33 +141,25 @@ if uploaded_files:
         st.pyplot(fig)
 
     with tab7:
-        st.subheader("Summary Comment")
-        summary_data = filtered_df.groupby('user_first_name')['minutes'].sum().reset_index()
-        
-        # Using OpenAI API for generating a comment
-        openai.api_key = os.getenv("OPENAI_API_KEY")
-        
-        user_summary = "User Summary:\n"
-        for index, row in summary_data.iterrows():
-            user_summary += f"{row['user_first_name']} spent {row['minutes']} minutes in total tasks.\n"
-        
-        try:
-            response = openai.Completion.create(
-                engine="text-davinci-003",
-                prompt=f"Based on the following user summary, generate a performance summary comment:\n{user_summary}",
-                max_tokens=150
-            )
-            generated_comment = response.choices[0].text.strip()
-            st.write("AI-Generated Summary Comment:")
-            st.write(generated_comment)
-        except openai.Error as e:
-            st.error(f"Error generating summary: {e}")
-
-    with tab8:
         st.subheader("Compiled View of All Uploaded Files")
-        # Display the combined data from all uploaded files
-        st.dataframe(df, use_container_width=True)
-        st.download_button("📥 Download All Data", data=df.to_csv(index=False), file_name="all_uploaded_data.csv")
+        combined_df = load_all_data(uploaded_files)
+        st.dataframe(combined_df, use_container_width=True)
+
+        st.download_button("📥 Download All Files Combined", data=combined_df.to_csv(index=False), file_name="combined_data.csv")
+
+    # Generate AI Summary based on filtered data
+    try:
+        user_summary = filtered_df.describe(include='all').to_string()
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=f"Based on the following user summary, generate a performance summary comment:\n{user_summary}",
+            max_tokens=150
+        )
+        generated_comment = response.choices[0].text.strip()
+        st.write("AI-Generated Summary Comment:")
+        st.write(generated_comment)
+    except openai.error.OpenAIError as e:
+        st.error(f"Error generating summary: {e}")
 
 else:
     st.info("Upload one or more CSV files to begin.")
