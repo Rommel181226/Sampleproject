@@ -1,6 +1,7 @@
-streamlit
-pandas
-plotly
-calplot
-openai
-matplotlib  # required by calplot
+streamlit>=1.32.0
+pandas>=2.0.0
+plotly>=5.17.0
+matplotlib>=3.7.0
+calplot>=0.1.7.1
+python-dotenv>=1.0.0
+openai>=1.0.0
