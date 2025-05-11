@@ -1,6 +1,6 @@
 streamlit
 pandas
 plotly
-openai
-matplotlib
 calplot
+openai
+matplotlib  # required by calplot
