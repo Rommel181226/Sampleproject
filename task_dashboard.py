@@ -6,7 +6,8 @@ import calplot
 import os
 from openai import OpenAI
 
-# OpenAI client
+os.environ["OPENAI_API_KEY"] = "your-api-key-here"  # or use a .env loader
+
 client = OpenAI()
 
 # Page config
