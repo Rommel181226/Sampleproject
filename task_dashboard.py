@@ -1,19 +1,58 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import seaborn as sns
-import matplotlib.pyplot as plt
+import calplot
+import os
+import openai
 
-# Function to load CSV data
-@st.cache
-def load_all_data(uploaded_files):
-    df_list = []
-    for file in uploaded_files:
+# Streamlit Page Config
+st.set_page_config(page_title="Task Dashboard", layout="wide")
+st.title("🗂️ Task Time Analysis Dashboard")
+
+# Sidebar - Logo and Title
+logo_path = os.path.join("images", "logo.png")
+if os.path.exists(logo_path):
+    st.sidebar.image(logo_path, width=150)
+st.sidebar.markdown("## 📁 Task Dashboard Sidebar")
+
+# Sidebar - Upload multiple CSV files
+uploaded_files = st.sidebar.file_uploader("Upload CSV files", type=["csv"], accept_multiple_files=True)
+
+# Replace st.cache with st.cache_data
+@st.cache_data
+def load_all_data(files):
+    combined = []
+    for file in files:
         df = pd.read_csv(file)
-        df_list.append(df)
-    return pd.concat(df_list, ignore_index=True)
+        df['started_at'] = pd.to_datetime(df['started_at'], errors='coerce')
+        df['date'] = df['started_at'].dt.date
+        df['hour'] = df['started_at'].dt.hour
+        combined.append(df)
+    return pd.concat(combined, ignore_index=True)
 
-# Main logic
+# AI Summary Generator Function
+def generate_summary(filtered_data):
+    prompt = (
+        f"Provide a brief, professional summary for task time analytics based on this data:\n\n"
+        f"{filtered_data[['user_first_name', 'task', 'minutes', 'date']].head(20).to_csv(index=False)}\n\n"
+        "Summarize trends, top users, and task types in a few sentences."
+    )
+
+    openai.api_key = os.getenv("OPENAI_API_KEY")  # Make sure the API key is set in your environment
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "system", "content": "You are a data analyst."},
+                      {"role": "user", "content": prompt}],
+            max_tokens=150,
+            temperature=0.6
+        )
+        return response.choices[0].message['content'].strip()
+    except Exception as e:
+        return f"Error generating summary: {e}"
+
+# Main Logic
 if uploaded_files:
     df = load_all_data(uploaded_files)
 
@@ -39,112 +78,94 @@ if uploaded_files:
     filtered_df = df[mask]
 
     # Tabs for different views
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12, tab13 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         "📊 Summary", "📈 Visualizations", "📋 Task Records",
         "👤 User Drilldown", "⏰ Hourly Analysis", "📅 Calendar Heatmap",
-        "📈 Productivity Trends", "📊 Top Tasks", "📊 User Efficiency",
-        "⏳ Idle Time Gaps", "📂 Project Comparison", "📅 Weekday/Hour Heatmap",
-        "⏳ Task Completion Distribution"
+        "🧠 AI Summary", "📑 All Uploaded Data"
     ])
 
     with tab1:
-        # Existing Summary code here
-        st.subheader("Summary of Filtered Data")
-        st.write(filtered_df.describe())
+        st.subheader("Minutes Uploaded by Each User")
+        minute_table = filtered_df.groupby(['user_first_name'])['minutes'].sum().reset_index()
+        st.dataframe(minute_table, use_container_width=True)
+
+        st.subheader("User List")
+        user_table = df[['user_first_name', 'user_last_name', 'user_locale']].drop_duplicates().sort_values(by='user_first_name')
+        st.dataframe(user_table, use_container_width=True)
+
+        total_minutes = filtered_df['minutes'].sum()
+        avg_minutes = filtered_df['minutes'].mean()
+        total_tasks = filtered_df.shape[0]
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Time Spent (min)", total_minutes)
+        col2.metric("Average Time per Task (min)", round(avg_minutes, 2))
+        col3.metric("Total Tasks", total_tasks)
 
     with tab2:
-        # Existing Visualizations code here
-        st.subheader("Visualizations")
-        fig = px.scatter(filtered_df, x='started_at', y='minutes', color='user_first_name', title="Time vs User")
-        st.plotly_chart(fig)
+        st.markdown("### Time Spent per User")
+        time_chart = filtered_df.groupby('user_first_name')['minutes'].sum().reset_index()
+        fig_time = px.bar(time_chart, x='user_first_name', y='minutes', title='Total Minutes per User')
+        st.plotly_chart(fig_time, use_container_width=True)
+
+        st.markdown("### Time Distribution by Date")
+        date_chart = filtered_df.groupby('date')['minutes'].sum().reset_index()
+        fig_date = px.line(date_chart, x='date', y='minutes', markers=True, title='Minutes Logged Over Time')
+        st.plotly_chart(fig_date, use_container_width=True)
+
+        st.subheader("Breakdown by Task Type")
+        task_summary = filtered_df.groupby('task')['minutes'].sum().reset_index().sort_values(by='minutes', ascending=False)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            fig_pie = px.pie(task_summary, names='task', values='minutes', title="Total Minutes by Task Type")
+            st.plotly_chart(fig_pie, use_container_width=True)
+        with col2:
+            fig_bar = px.bar(task_summary, x='task', y='minutes', title='Total Minutes by Task Type', text_auto=True)
+            st.plotly_chart(fig_bar, use_container_width=True)
 
     with tab3:
-        # Existing Task Records code here
-        st.subheader("Task Records")
-        st.dataframe(filtered_df)
+        st.markdown("### Task Records")
+        st.dataframe(filtered_df[['date', 'user_first_name', 'user_last_name', 'task', 'minutes']], use_container_width=True)
+        st.download_button("📥 Download Filtered Data", data=filtered_df.to_csv(index=False), file_name="filtered_data.csv")
 
     with tab4:
-        # Existing User Drilldown code here
         st.subheader("User Drilldown")
-        selected_user = st.selectbox("Select User", options=selected_users)
-        user_data = filtered_df[filtered_df['user_first_name'] == selected_user]
-        st.write(f"Data for {selected_user}")
-        st.dataframe(user_data)
+        selected_user = st.selectbox("Select User", options=filtered_df['user_first_name'].unique())
+        user_df = filtered_df[filtered_df['user_first_name'] == selected_user]
+
+        col1, col2 = st.columns(2)
+        col1.metric("Total Minutes", user_df['minutes'].sum())
+        col2.metric("Average Task Time", round(user_df['minutes'].mean(), 2))
+
+        user_chart = user_df.groupby('task')['minutes'].sum().reset_index()
+        fig_user = px.bar(user_chart, x='task', y='minutes', title=f"Task Breakdown for {selected_user}")
+        st.plotly_chart(fig_user, use_container_width=True)
+
+        st.markdown("### Task History")
+        st.dataframe(user_df[['date', 'task', 'minutes']], use_container_width=True)
 
     with tab5:
-        # Existing Hourly Analysis code here
-        st.subheader("Hourly Analysis")
-        hourly_data = filtered_df.groupby(filtered_df['started_at'].dt.hour)['minutes'].sum().reset_index()
-        fig_hourly = px.bar(hourly_data, x='started_at', y='minutes', title="Total Time Spent by Hour")
-        st.plotly_chart(fig_hourly)
+        st.subheader("Hourly Time-of-Day Analysis")
+        hourly_summary = filtered_df.groupby('hour')['minutes'].sum().reset_index()
+        fig_hour = px.bar(hourly_summary, x='hour', y='minutes', title="Minutes Logged by Hour of Day")
+        st.plotly_chart(fig_hour, use_container_width=True)
 
     with tab6:
-        # Existing Calendar Heatmap code here
         st.subheader("Calendar Heatmap")
-        df['day'] = df['started_at'].dt.date
-        daily_data = df.groupby('day')['minutes'].sum().reset_index()
-        fig_calendar = px.density_heatmap(daily_data, x='day', y='minutes', title="Daily Time Heatmap")
-        st.plotly_chart(fig_calendar)
-
-    with tab7:
-        # 📈 Productivity Trends
-        st.subheader("Productivity Trends Over Time")
-        df['week'] = df['started_at'].dt.to_period('W').astype(str)
-        weekly_trend = df.groupby('week')['minutes'].sum().reset_index()
-        fig_weekly = px.line(weekly_trend, x='week', y='minutes', markers=True, title="Weekly Productivity Trend")
-        st.plotly_chart(fig_weekly, use_container_width=True)
+        heatmap_data = filtered_df.groupby('date')['minutes'].sum().reset_index()
+        heatmap_data['date'] = pd.to_datetime(heatmap_data['date'])
+        fig, _ = calplot.calplot(heatmap_data.set_index('date')['minutes'], cmap='YlGn', figsize=(16, 8))
+        st.pyplot(fig)
 
     with tab8:
-        # 📊 Top Tasks
-        st.subheader("Top Tasks by Duration & Frequency")
-        
-        # Top tasks by total time spent
-        top_by_time = df.groupby('task')['minutes'].sum().sort_values(ascending=False).head(5)
-        st.write("Top 5 Tasks by Total Time Spent")
-        st.bar_chart(top_by_time)
-        
-        # Top tasks by frequency
-        top_by_count = df['task'].value_counts().head(5)
-        st.write("Top 5 Most Frequent Tasks")
-        st.bar_chart(top_by_count)
-
-    with tab9:
-        # 📊 User Efficiency Score
-        st.subheader("User Efficiency Scores")
-        efficiency = df.groupby('user_first_name').agg({'minutes': 'sum', 'task': 'count'})
-        efficiency['efficiency_score'] = efficiency['minutes'] / efficiency['task']
-        efficiency = efficiency.sort_values(by='efficiency_score', ascending=False)
-        st.write("User Efficiency Scores (Minutes per Task)")
-        st.bar_chart(efficiency['efficiency_score'])
-
-    with tab10:
-        # ⏳ Idle Time Gaps
-        st.subheader("Idle Time / Gap Detection")
-        df_sorted = df.sort_values(by=['user_first_name', 'started_at'])
-        df_sorted['time_diff'] = df_sorted.groupby('user_first_name')['started_at'].diff()
-        st.write("Time Gaps Between Tasks (Minutes)")
-        st.dataframe(df_sorted[['user_first_name', 'task', 'time_diff']])
-
-    with tab11:
-        # 📂 Project Comparison
-        st.subheader("Project Comparison (Time Spent)")
-        project_summary = df.groupby('project_id')['minutes'].sum().reset_index()
-        fig_project = px.bar(project_summary, x='project_id', y='minutes', title="Total Time Spent per Project")
-        st.plotly_chart(fig_project, use_container_width=True)
-
-    with tab12:
-        # 📅 Weekday/Hour Heatmap
-        st.subheader("Heatmap by Weekday and Hour")
-        df['weekday'] = df['started_at'].dt.day_name()
-        heat_data = df.groupby(['weekday', 'hour'])['minutes'].sum().unstack().fillna(0)
-        st.write("Weekday vs Hour Heatmap")
-        st.dataframe(heat_data)
-
-    with tab13:
-        # ⏳ Task Completion Distribution
-        st.subheader("Task Completion Distribution (Time Per Task)")
-        sns.histplot(df['minutes'], bins=20)
-        st.pyplot()
+        st.subheader("All Uploaded Data (Before Filtering)")
+        st.dataframe(df, use_container_width=True)
+        st.download_button(
+            label="📥 Download All Uploaded Data",
+            data=df.to_csv(index=False),
+            file_name="compiled_uploaded_data.csv"
+        )
 
 else:
     st.info("Upload one or more CSV files to begin.")
