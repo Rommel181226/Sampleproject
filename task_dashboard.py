@@ -4,10 +4,7 @@ import plotly.express as px
 import calplot
 import os
 import openai
-from fpdf import FPDF
-import tempfile
-import base64
-from datetime import datetime
+import matplotlib.pyplot as plt
 
 # Streamlit Page Config
 st.set_page_config(page_title="Task Dashboard", layout="wide")
@@ -19,7 +16,7 @@ if os.path.exists(logo_path):
     st.sidebar.image(logo_path, width=150)
 st.sidebar.markdown("## 📁 Task Dashboard Sidebar")
 
-# Sidebar - Upload CSV files
+# Sidebar - Upload multiple CSV files
 uploaded_files = st.sidebar.file_uploader("Upload CSV files", type=["csv"], accept_multiple_files=True)
 
 @st.cache_data
@@ -33,12 +30,11 @@ def load_all_data(files):
         combined.append(df)
     return pd.concat(combined, ignore_index=True)
 
-# --- AI Summary Function ---
+# AI Summary Generator Function
 def generate_summary(filtered_data):
-    sample = filtered_data[['user_first_name', 'task', 'minutes', 'date']].head(20).to_csv(index=False)
     prompt = (
         f"Provide a brief, professional summary for task time analytics based on this data:\n\n"
-        f"{sample}\n\n"
+        f"{filtered_data[['user_first_name', 'task', 'minutes', 'date']].head(20).to_csv(index=False)}\n\n"
         "Summarize trends, top users, and task types in a few sentences."
     )
 
@@ -54,38 +50,11 @@ def generate_summary(filtered_data):
             max_tokens=150,
             temperature=0.6
         )
-        return response.choices[0].message['content'].strip(), "OpenAI"
+        return response.choices[0].message['content'].strip()
     except Exception as e:
-        return f"(Fallback Summary) Top user: {filtered_data['user_first_name'].mode()[0]}. " \
-               f"Most frequent task: {filtered_data['task'].mode()[0]}.", "Fallback"
+        return f"Error generating summary: {e}"
 
-# --- PDF Report Generator ---
-def generate_pdf(summary_text, fig1, fig2):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    pdf.multi_cell(0, 10, "Task Time Analysis Summary", align="C")
-    pdf.ln()
-
-    pdf.set_font("Arial", size=11)
-    pdf.multi_cell(0, 10, summary_text)
-    pdf.ln()
-
-    temp_dir = tempfile.gettempdir()
-    path1 = os.path.join(temp_dir, "top_users.png")
-    path2 = os.path.join(temp_dir, "top_tasks.png")
-    fig1.write_image(path1)
-    fig2.write_image(path2)
-
-    pdf.image(path1, x=10, w=180)
-    pdf.add_page()
-    pdf.image(path2, x=10, w=180)
-
-    output_path = os.path.join(temp_dir, "task_summary_report.pdf")
-    pdf.output(output_path)
-    return output_path
-
-# --- Main App Logic ---
+# Main Logic
 if uploaded_files:
     df = load_all_data(uploaded_files)
 
@@ -110,7 +79,7 @@ if uploaded_files:
     )
     filtered_df = df[mask]
 
-    # Tabs
+    # Tabs for different views
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         "📊 Summary", "📈 Visualizations", "📋 Task Records",
         "👤 User Drilldown", "⏰ Hourly Analysis", "📅 Calendar Heatmap",
@@ -119,11 +88,11 @@ if uploaded_files:
 
     with tab1:
         st.subheader("Minutes Uploaded by Each User")
-        minute_table = filtered_df.groupby('user_first_name')['minutes'].sum().reset_index()
+        minute_table = filtered_df.groupby(['user_first_name'])['minutes'].sum().reset_index()
         st.dataframe(minute_table, use_container_width=True)
 
         st.subheader("User List")
-        user_table = df[['user_first_name', 'user_last_name', 'user_locale']].drop_duplicates()
+        user_table = df[['user_first_name', 'user_last_name', 'user_locale']].drop_duplicates().sort_values(by='user_first_name')
         st.dataframe(user_table, use_container_width=True)
 
         total_minutes = filtered_df['minutes'].sum()
@@ -132,27 +101,29 @@ if uploaded_files:
 
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Time Spent (min)", total_minutes)
-        col2.metric("Avg Time per Task (min)", round(avg_minutes, 2))
+        col2.metric("Average Time per Task (min)", round(avg_minutes, 2))
         col3.metric("Total Tasks", total_tasks)
 
     with tab2:
         st.markdown("### Time Spent per User")
-        user_chart = filtered_df.groupby('user_first_name')['minutes'].sum().reset_index()
-        fig_user = px.bar(user_chart, x='user_first_name', y='minutes', title='Total Minutes per User')
-        st.plotly_chart(fig_user, use_container_width=True)
+        time_chart = filtered_df.groupby('user_first_name')['minutes'].sum().reset_index()
+        fig_time = px.bar(time_chart, x='user_first_name', y='minutes', title='Total Minutes per User')
+        st.plotly_chart(fig_time, use_container_width=True)
 
         st.markdown("### Time Distribution by Date")
         date_chart = filtered_df.groupby('date')['minutes'].sum().reset_index()
-        fig_date = px.line(date_chart, x='date', y='minutes', markers=True)
+        fig_date = px.line(date_chart, x='date', y='minutes', markers=True, title='Minutes Logged Over Time')
         st.plotly_chart(fig_date, use_container_width=True)
 
+        st.subheader("Breakdown by Task Type")
         task_summary = filtered_df.groupby('task')['minutes'].sum().reset_index().sort_values(by='minutes', ascending=False)
+
         col1, col2 = st.columns(2)
         with col1:
-            fig_pie = px.pie(task_summary, names='task', values='minutes', title="Minutes by Task Type")
+            fig_pie = px.pie(task_summary, names='task', values='minutes', title="Total Minutes by Task Type")
             st.plotly_chart(fig_pie, use_container_width=True)
         with col2:
-            fig_bar = px.bar(task_summary, x='task', y='minutes', title='Task Breakdown')
+            fig_bar = px.bar(task_summary, x='task', y='minutes', title='Total Minutes by Task Type', text_auto=True)
             st.plotly_chart(fig_bar, use_container_width=True)
 
     with tab3:
@@ -164,60 +135,51 @@ if uploaded_files:
         st.subheader("User Drilldown")
         selected_user = st.selectbox("Select User", options=filtered_df['user_first_name'].unique())
         user_df = filtered_df[filtered_df['user_first_name'] == selected_user]
+
         col1, col2 = st.columns(2)
         col1.metric("Total Minutes", user_df['minutes'].sum())
-        col2.metric("Avg Task Time", round(user_df['minutes'].mean(), 2))
+        col2.metric("Average Task Time", round(user_df['minutes'].mean(), 2))
 
-        drill_chart = user_df.groupby('task')['minutes'].sum().reset_index()
-        fig_drill = px.bar(drill_chart, x='task', y='minutes', title=f"Task Breakdown for {selected_user}")
-        st.plotly_chart(fig_drill, use_container_width=True)
+        user_chart = user_df.groupby('task')['minutes'].sum().reset_index()
+        fig_user = px.bar(user_chart, x='task', y='minutes', title=f"Task Breakdown for {selected_user}")
+        st.plotly_chart(fig_user, use_container_width=True)
+
+        st.markdown("### Task History")
         st.dataframe(user_df[['date', 'task', 'minutes']], use_container_width=True)
 
     with tab5:
         st.subheader("Hourly Time-of-Day Analysis")
-        hourly = filtered_df.groupby('hour')['minutes'].sum().reset_index()
-        fig_hour = px.bar(hourly, x='hour', y='minutes', title="Minutes by Hour")
+        hourly_summary = filtered_df.groupby('hour')['minutes'].sum().reset_index()
+        fig_hour = px.bar(hourly_summary, x='hour', y='minutes', title="Minutes Logged by Hour of Day")
         st.plotly_chart(fig_hour, use_container_width=True)
 
     with tab6:
         st.subheader("Calendar Heatmap")
         heatmap_data = filtered_df.groupby('date')['minutes'].sum().reset_index()
         heatmap_data['date'] = pd.to_datetime(heatmap_data['date'])
-        fig, _ = calplot.calplot(heatmap_data.set_index('date')['minutes'], cmap='YlGn', figsize=(16, 8))
+
+        fig = calplot.calplot(
+            heatmap_data.set_index('date')['minutes'],
+            cmap='YlGn',
+            figsize=(16, 8)
+        )
         st.pyplot(fig)
 
     with tab7:
         st.subheader("🧠 AI-Generated Summary")
         with st.spinner("Generating summary with AI..."):
-            summary_text, summary_method = generate_summary(filtered_df)
-            st.success("Summary generated using: " + summary_method)
+            summary_text = generate_summary(filtered_df)
+            st.success("Summary generated:")
             st.markdown(summary_text)
-
-            # Download options
-            st.download_button("💾 Download Summary (TXT)", data=summary_text, file_name="task_summary.txt")
-            summary_df = pd.DataFrame({"method": [summary_method], "summary": [summary_text]})
-            st.download_button("📄 Download Summary (CSV)", data=summary_df.to_csv(index=False), file_name="task_summary.csv")
-
-            # Generate top user/task charts
-            top_users = filtered_df.groupby('user_first_name')['minutes'].sum().nlargest(5).reset_index()
-            top_tasks = filtered_df.groupby('task')['minutes'].sum().nlargest(5).reset_index()
-            fig1 = px.bar(top_users, x='user_first_name', y='minutes', title="Top 5 Users by Time Spent")
-            fig2 = px.pie(top_tasks, names='task', values='minutes', title="Top 5 Tasks by Minutes")
-            st.plotly_chart(fig1)
-            st.plotly_chart(fig2)
-
-            # Generate PDF
-            if st.button("📄 Generate PDF Report"):
-                pdf_path = generate_pdf(summary_text, fig1, fig2)
-                with open(pdf_path, "rb") as f:
-                    base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-                href = f'<a href="data:application/octet-stream;base64,{base64_pdf}" download="task_summary_report.pdf">📥 Download PDF Report</a>'
-                st.markdown(href, unsafe_allow_html=True)
 
     with tab8:
         st.subheader("All Uploaded Data (Before Filtering)")
         st.dataframe(df, use_container_width=True)
-        st.download_button("📥 Download All Uploaded Data", data=df.to_csv(index=False), file_name="all_uploaded_data.csv")
+        st.download_button(
+            label="📥 Download All Uploaded Data",
+            data=df.to_csv(index=False),
+            file_name="compiled_uploaded_data.csv"
+        )
 
 else:
     st.info("Upload one or more CSV files to begin.")
