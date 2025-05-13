@@ -3,8 +3,6 @@ import pandas as pd
 import plotly.express as px
 import calplot
 import os
-import openai
-import matplotlib.pyplot as plt
 
 # Streamlit Page Config
 st.set_page_config(page_title="Task Dashboard", layout="wide")
@@ -29,30 +27,6 @@ def load_all_data(files):
         df['hour'] = df['started_at'].dt.hour
         combined.append(df)
     return pd.concat(combined, ignore_index=True)
-
-# AI Summary Generator Function
-def generate_summary(filtered_data):
-    prompt = (
-        f"Provide a brief, professional summary for task time analytics based on this data:\n\n"
-        f"{filtered_data[['user_first_name', 'task', 'minutes', 'date']].head(20).to_csv(index=False)}\n\n"
-        "Summarize trends, top users, and task types in a few sentences."
-    )
-
-    openai.api_key = os.getenv("OPENAI_API_KEY")
-
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a data analyst."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=150,
-            temperature=0.6
-        )
-        return response.choices[0].message['content'].strip()
-    except Exception as e:
-        return f"Error generating summary: {e}"
 
 # Main Logic
 if uploaded_files:
@@ -80,10 +54,10 @@ if uploaded_files:
     filtered_df = df[mask]
 
     # Tabs for different views
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "📊 Summary", "📈 Visualizations", "📋 Task Records",
         "👤 User Drilldown", "⏰ Hourly Analysis", "📅 Calendar Heatmap",
-        "🧠 AI Summary", "📑 All Uploaded Data"
+        "📑 All Uploaded Data"
     ])
 
     with tab1:
@@ -157,22 +131,18 @@ if uploaded_files:
         st.subheader("Calendar Heatmap")
         heatmap_data = filtered_df.groupby('date')['minutes'].sum().reset_index()
         heatmap_data['date'] = pd.to_datetime(heatmap_data['date'])
+        heatmap_series = heatmap_data.set_index('date')['minutes']
 
-        fig = calplot.calplot(
-            heatmap_data.set_index('date')['minutes'],
+        fig, ax = calplot.calplot(
+            heatmap_series,
             cmap='YlGn',
-            figsize=(16, 8)
+            colorbar=True,
+            figsize=(16, 8),
+            suptitle='Minutes Logged per Day'
         )
         st.pyplot(fig)
 
     with tab7:
-        st.subheader("🧠 AI-Generated Summary")
-        with st.spinner("Generating summary with AI..."):
-            summary_text = generate_summary(filtered_df)
-            st.success("Summary generated:")
-            st.markdown(summary_text)
-
-    with tab8:
         st.subheader("All Uploaded Data (Before Filtering)")
         st.dataframe(df, use_container_width=True)
         st.download_button(
