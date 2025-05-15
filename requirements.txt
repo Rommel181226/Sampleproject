@@ -1,6 +1,6 @@
 streamlit
 pandas
 plotly
-calplot
-seaborn
-openai
+matplotlib
+reportlab
+pillow
