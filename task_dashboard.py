@@ -222,8 +222,17 @@ if uploaded_files:
         st.markdown("### 🧠 AI Insight")
         task_counts = filtered_df['task'].value_counts()
         top_wc_task = task_counts.index[0] if not task_counts.empty else None
-        summary = f"The most frequent task is **{top_wc_task}**." if top_wc_task else "No task data to analyze."
-        st.info(summary)
+
+        wc_summary = (
+            f"The word cloud visualizes the most frequently logged tasks. "
+            f"**{top_wc_task}** appears most often, suggesting it's central to team operations.\n\n"
+            f"Frequent mentions may reflect routine responsibilities, while missing or rare task types could indicate under-reporting "
+            f"or areas with less activity.\n\n"
+            f"Use this to understand recurring themes or evaluate if task tracking is comprehensive."
+        if top_wc_task else "No task text was available to analyze frequency trends."
+            )
+        st.info(wc_summary)
+
 
     # --- Tab 6 ---
     with tab6:
