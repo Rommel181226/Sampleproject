@@ -30,6 +30,18 @@ if st.button("🌙 Toggle Dark Mode" if st.session_state['theme'] == 'light' els
     st.session_state['theme'] = 'dark' if st.session_state['theme'] == 'light' else 'light'
     st.experimental_rerun()
     
+# Apply theme settings
+if st.session_state['theme'] == 'dark':
+    st._config.set_option("theme.base", "dark")
+    st._config.set_option("theme.primaryColor", "#c98bdb")
+    st._config.set_option("theme.backgroundColor", "#000000")
+    st._config.set_option("theme.secondaryBackgroundColor", "#1a1a1a")
+else:
+    st._config.set_option("theme.base", "light")
+    st._config.set_option("theme.primaryColor", "#1E90FF")
+    st._config.set_option("theme.backgroundColor", "#FFFFFF")
+    st._config.set_option("theme.secondaryBackgroundColor", "#F0F2F6")
+
 # Sidebar Enhancements
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🔍 Navigation")
