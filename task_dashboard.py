@@ -242,14 +242,29 @@ if uploaded_files:
         fig_top_users.update_layout(showlegend=False)
         st.plotly_chart(fig_top_users, use_container_width=True)
 
-        # 🧠 AI Insight
+        # 🧠 Enhanced AI Insight with percentage share
+        total_all_users_time = filtered_df['minutes'].sum()
+        top_users_df['percentage'] = (top_users_df['minutes'] / total_all_users_time * 100).round(2)
+
         most_active = top_users_df.iloc[0]
         avg_top5 = round(top_users_df['minutes'].mean(), 2)
+        highest_pct = most_active['percentage']
+
         insight_text = (
-            f"Among the top 5 users, **{most_active['user_first_name']}** logged the highest time with **{int(most_active['minutes'])} minutes**. "
-            f"The average time across these top contributors is approximately **{avg_top5} minutes**.\n\n"
-            f"This suggests a core group of high-performing or heavily assigned users—consider balancing workload or learning from their efficiency."
+            f"Among the top 5 users, **{most_active['user_first_name']}** logged the highest time with "
+            f"**{int(most_active['minutes'])} minutes**, accounting for **{highest_pct}%** of total logged time.\n\n"
+            f"The average time spent across the top 5 users is approximately **{avg_top5} minutes**.\n\n"
         )
+
+        if highest_pct > 40:
+            insight_text += (
+                "⚠️ This user is contributing a disproportionately large share of total time. "
+                "Consider reviewing task assignments or workload distribution to prevent burnout or dependency."
+            )
+        else:
+            insight_text += (
+                "✅ The time distribution among top users appears balanced, suggesting a healthy workload spread."
+            )
         st.markdown("### 🧠 AI Insight")
         st.info(insight_text)
     
