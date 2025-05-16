@@ -134,11 +134,15 @@ if uploaded_files:
         top_task = task_summary.iloc[0]['task']
         top_task_minutes = task_summary.iloc[0]['minutes']
         most_active_user = time_chart.sort_values(by='minutes', ascending=False).iloc[0]['user_first_name']
+
         viz_summary = (
-            f"**{top_task}** is the most time-consuming task with **{int(top_task_minutes)} minutes** logged. "
-            f"**{most_active_user}** has spent the most total time."
-        )
+            f"From the visual analysis, **{top_task}** stands out as the most time-consuming task type, "
+            f"accumulating **{int(top_task_minutes)} minutes**. This may indicate complexity or frequent repetition.\n\n"
+            f"**{most_active_user}** leads in total time logged, suggesting either a higher workload or a more time-intensive role.\n\n"
+            f"The temporal line chart helps identify productivity trends—spikes may reflect sprints or deadlines, while dips could indicate downtime or under-reporting."
+            )
         st.info(viz_summary)
+
 
     # --- Tab 3 ---
     with tab3:
