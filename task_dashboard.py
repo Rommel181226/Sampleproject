@@ -241,8 +241,14 @@ if uploaded_files:
             st.plotly_chart(fig, use_container_width=True)
 
             st.markdown("### 🧠 AI Insight")
+            if not comp_df.empty:
             top_user = comp_df.groupby('user_first_name')['minutes'].sum().idxmax()
-            st.info(f"Among selected users, **{top_user}** logged the most time.")
+            top_value = comp_df.groupby('user_first_name')['minutes'].sum().max()
+            st.info(
+            f"Among the compared users, **{top_user}** has logged the most time with **{top_value} minutes**.\n\n"
+            f"This comparison helps detect imbalances in task distribution, identify high performers, or understand who is handling which task types."
+            )
+
 
     # --- Tab 9 ---
     with tab9:
