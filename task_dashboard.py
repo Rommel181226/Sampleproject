@@ -13,7 +13,12 @@ st.title("📂 Task Time Analysis Dashboard")
 logo_path = os.path.join("images", "logo.png")
 if os.path.exists(logo_path):
     st.sidebar.image(logo_path, width=150)
+
 st.sidebar.markdown("## 📁 Task Dashboard Sidebar")
+
+# Refresh Button
+if st.sidebar.button("🔄 Refresh Dashboard"):
+    st.experimental_rerun()
 
 # File uploader widget
 uploaded_files = st.sidebar.file_uploader(
