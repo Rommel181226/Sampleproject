@@ -53,6 +53,7 @@ if uploaded_files:
         "📑 All Uploaded Data", "👥 User Comparison", "🕒 Hourly Heatmap"
     ])
 
+    # --- Tab 1 ---
     with tab1:
         st.subheader("User Summary")
         user_summary = (
@@ -85,7 +86,6 @@ if uploaded_files:
         col2.metric("Average Time per Task (min)", round(avg_minutes, 2))
         col3.metric("Total Tasks", total_tasks)
 
-        # AI Summary
         st.markdown("### 🧠 AI Summary")
         top_user = user_summary.iloc[0]['First Name']
         top_minutes = user_summary.iloc[0]['Total Minutes']
@@ -101,18 +101,13 @@ if uploaded_files:
         )
         st.info(summary_text)
 
+    # --- Tab 2 ---
     with tab2:
         st.markdown("## 📈 Visualizations")
-        st.markdown("### Total Time Spent per User")
+
         time_chart = filtered_df.groupby('user_first_name')['minutes'].sum().reset_index()
-        fig_time = px.bar(
-            time_chart,
-            x='user_first_name',
-            y='minutes',
-            title='Total Minutes per User',
-            labels={'user_first_name': 'User', 'minutes': 'Total Minutes'},
-            text='minutes'
-        )
+        st.markdown("### Total Time Spent per User")
+        fig_time = px.bar(time_chart, x='user_first_name', y='minutes', text='minutes', title='Total Minutes per User')
         fig_time.update_traces(texttemplate='%{text:.2s}', textposition='outside')
         st.plotly_chart(fig_time, use_container_width=True)
 
@@ -135,29 +130,45 @@ if uploaded_files:
             fig_bar.update_layout(xaxis_tickangle=-45)
             st.plotly_chart(fig_bar, use_container_width=True)
 
+        st.markdown("### 🧠 AI Insight")
+        top_task = task_summary.iloc[0]['task']
+        top_task_minutes = task_summary.iloc[0]['minutes']
+        most_active_user = time_chart.sort_values(by='minutes', ascending=False).iloc[0]['user_first_name']
+        viz_summary = (
+            f"**{top_task}** is the most time-consuming task with **{int(top_task_minutes)} minutes** logged. "
+            f"**{most_active_user}** has spent the most total time."
+        )
+        st.info(viz_summary)
+
+    # --- Tab 3 ---
     with tab3:
         st.subheader("Task Duration Distribution")
-        fig_hist = px.histogram(filtered_df, x='minutes', nbins=30, title="Histogram of Task Durations (minutes)")
+        fig_hist = px.histogram(filtered_df, x='minutes', nbins=30, title="Histogram of Task Durations")
         st.plotly_chart(fig_hist, use_container_width=True)
-
         fig_box = px.box(filtered_df, y='minutes', title="Boxplot of Task Durations")
         st.plotly_chart(fig_box, use_container_width=True)
 
-        st.subheader("Outlier Detection (Task Duration)")
+        st.subheader("Outlier Detection")
         Q1 = filtered_df['minutes'].quantile(0.25)
         Q3 = filtered_df['minutes'].quantile(0.75)
         IQR = Q3 - Q1
         lower_bound = Q1 - 1.5 * IQR
         upper_bound = Q3 + 1.5 * IQR
+        st.write(f"Outlier thresholds: < {lower_bound:.2f} or > {upper_bound:.2f} minutes")
 
-        st.write(f"Outlier thresholds: Tasks shorter than {lower_bound:.2f} min or longer than {upper_bound:.2f} min.")
         outliers = filtered_df[(filtered_df['minutes'] < lower_bound) | (filtered_df['minutes'] > upper_bound)]
         if outliers.empty:
-            st.success("No outliers detected in task durations.")
+            st.success("No outliers detected.")
         else:
-            st.warning(f"Detected {outliers.shape[0]} outlier tasks:")
+            st.warning(f"Found {outliers.shape[0]} outlier tasks")
             st.dataframe(outliers[['date', 'user_first_name', 'task', 'minutes']], use_container_width=True)
 
+        st.markdown("### 🧠 AI Insight")
+        shortest = round(filtered_df['minutes'].min(), 2)
+        longest = round(filtered_df['minutes'].max(), 2)
+        st.info(f"Durations range from **{shortest}** to **{longest}** minutes. Found **{outliers.shape[0]}** outliers.")
+
+    # --- Tab 4 ---
     with tab4:
         st.subheader("User Drilldown")
         selected_user = st.selectbox("Select User", options=filtered_df['user_first_name'].unique())
@@ -170,10 +181,12 @@ if uploaded_files:
         user_chart = user_df.groupby('task')['minutes'].sum().reset_index()
         fig_user = px.bar(user_chart, x='task', y='minutes', title=f"Task Breakdown for {selected_user}")
         st.plotly_chart(fig_user, use_container_width=True)
-
-        st.markdown("### Task History")
         st.dataframe(user_df[['date', 'task', 'minutes']], use_container_width=True)
 
+        st.markdown("### 🧠 AI Insight")
+        st.info(f"**{selected_user}** completed **{user_df.shape[0]} tasks** totaling **{user_df['minutes'].sum()} minutes**.")
+
+    # --- Tab 5 ---
     with tab5:
         st.subheader("Word Cloud of Tasks")
         text = " ".join(filtered_df['task'].dropna().astype(str).values)
@@ -186,76 +199,68 @@ if uploaded_files:
             ax.axis("off")
             st.pyplot(fig)
 
+        st.markdown("### 🧠 AI Insight")
+        task_counts = filtered_df['task'].value_counts()
+        top_wc_task = task_counts.index[0] if not task_counts.empty else None
+        summary = f"The most frequent task is **{top_wc_task}**." if top_wc_task else "No task data to analyze."
+        st.info(summary)
+
+    # --- Tab 6 ---
     with tab6:
-        st.subheader("📅 Calendar Heatmap (Plotly Version)")
+        st.subheader("📅 Calendar Heatmap")
         calendar_df = filtered_df.copy()
         calendar_df['date'] = pd.to_datetime(calendar_df['date'])
         daily_summary = calendar_df.groupby('date')['minutes'].sum().reset_index()
 
-        fig = px.density_heatmap(
-            daily_summary,
-            x='date',
-            y='minutes',
-            nbinsx=60,
-            title='Heatmap of Minutes Logged per Day',
-            labels={'date': 'Date', 'minutes': 'Minutes'},
-            color_continuous_scale='YlOrBr'
-        )
+        fig = px.density_heatmap(daily_summary, x='date', y='minutes', nbinsx=60,
+                                 title='Minutes Logged per Day', color_continuous_scale='YlOrBr')
         st.plotly_chart(fig, use_container_width=True)
 
+        st.markdown("### 🧠 AI Insight")
+        busiest_day = daily_summary.sort_values(by='minutes', ascending=False).iloc[0]
+        st.info(f"The most active day was **{busiest_day['date'].strftime('%Y-%m-%d')}** with **{int(busiest_day['minutes'])} minutes**.")
+
+    # --- Tab 7 ---
     with tab7:
         st.subheader("Raw Uploaded Data")
-        st.write(f"Showing {filtered_df.shape[0]} rows.")
         st.dataframe(filtered_df, use_container_width=True)
+        st.markdown("### 🧠 AI Insight")
+        st.info(f"The dataset has **{filtered_df.shape[0]} rows** and includes **{filtered_df['user_first_name'].nunique()} users**.")
 
+    # --- Tab 8 ---
     with tab8:
         st.subheader("User Comparison")
-        comp_users = st.multiselect("Select Users to Compare", options=users, default=users[:2])
+        comp_users = st.multiselect("Select Users", options=users, default=users[:2])
         if len(comp_users) < 2:
-            st.info("Please select at least two users to compare.")
+            st.info("Select at least 2 users.")
         else:
             comp_df = filtered_df[filtered_df['user_first_name'].isin(comp_users)]
-            comp_summary = (
-                comp_df.groupby(['user_first_name', 'task'])['minutes']
-                .sum()
-                .reset_index()
-            )
-            fig_comp = px.bar(
-                comp_summary,
-                x='task',
-                y='minutes',
-                color='user_first_name',
-                barmode='group',
-                title="Task Time Comparison Between Users",
-                labels={'task': 'Task', 'minutes': 'Total Minutes', 'user_first_name': 'User'}
-            )
-            fig_comp.update_layout(xaxis_tickangle=-45)
-            st.plotly_chart(fig_comp, use_container_width=True)
+            comp_summary = comp_df.groupby(['user_first_name', 'task'])['minutes'].sum().reset_index()
+            fig = px.bar(comp_summary, x='task', y='minutes', color='user_first_name', barmode='group')
+            fig.update_layout(xaxis_tickangle=-45)
+            st.plotly_chart(fig, use_container_width=True)
 
+            st.markdown("### 🧠 AI Insight")
+            top_user = comp_df.groupby('user_first_name')['minutes'].sum().idxmax()
+            st.info(f"Among selected users, **{top_user}** logged the most time.")
+
+    # --- Tab 9 ---
     with tab9:
         st.subheader("🕒 Hourly Activity Heatmap")
-
         if 'hour' in filtered_df.columns:
             heatmap_df = filtered_df.copy()
             heatmap_df['day'] = pd.to_datetime(heatmap_df['date']).dt.day_name()
             pivot = heatmap_df.groupby(['hour', 'day'])['minutes'].sum().reset_index()
             pivot_table = pivot.pivot(index='hour', columns='day', values='minutes').fillna(0)
-
             ordered_days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
             pivot_table = pivot_table.reindex(columns=ordered_days)
 
-            st.write("This heatmap shows total minutes logged by hour and day of week.")
-            fig = px.imshow(
-                pivot_table,
-                labels=dict(x="Day", y="Hour", color="Total Minutes"),
-                x=pivot_table.columns,
-                y=pivot_table.index,
-                color_continuous_scale='YlOrRd',
-                aspect="auto"
-            )
+            fig = px.imshow(pivot_table, labels=dict(x="Day", y="Hour", color="Minutes"), 
+                            color_continuous_scale='YlOrRd')
             st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("No hour data available. Make sure 'started_at' was properly parsed.")
 
+            st.markdown("### 🧠 AI Insight")
+            peak_hour = pivot.groupby('hour')['minutes'].sum().idxmax()
+            st.info(f"The busiest hour of the day is **{peak_hour}:00**.")
 else:
     st.info("Please upload one or more CSV files to get started.")
