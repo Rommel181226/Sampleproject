@@ -195,7 +195,16 @@ if uploaded_files:
         st.dataframe(user_df[['date', 'task', 'minutes']], use_container_width=True)
 
         st.markdown("### 🧠 AI Insight")
-        st.info(f"**{selected_user}** completed **{user_df.shape[0]} tasks** totaling **{user_df['minutes'].sum()} minutes**.")
+        user_task_count = user_df.shape[0]
+        user_total = user_df['minutes'].sum()
+
+        user_summary = (
+            f"**{selected_user}** has completed **{user_task_count} tasks** totaling **{user_total} minutes**. "
+            f"Their task time distribution offers insight into workload balance.\n\n"
+            f"If one task type dominates, it may highlight specialization or possible over-dependence on this user for certain duties.\n\n"
+            f"Use this view to evaluate both individual performance and role focus."
+             )
+        st.info(user_summary)
 
     # --- Tab 5 ---
     with tab5:
