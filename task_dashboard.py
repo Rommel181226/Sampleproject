@@ -247,7 +247,15 @@ if uploaded_files:
 
         st.markdown("### 🧠 AI Insight")
         busiest_day = daily_summary.sort_values(by='minutes', ascending=False).iloc[0]
-        st.info(f"The most active day was **{busiest_day['date'].strftime('%Y-%m-%d')}** with **{int(busiest_day['minutes'])} minutes**.")
+
+        cal_summary = (
+            f"The calendar heatmap reveals activity trends across dates. The peak productivity day was **{busiest_day['date'].strftime('%Y-%m-%d')}**, "
+            f"logging **{int(busiest_day['minutes'])} minutes**.\n\n"
+            f"Clusters of high activity can correspond to deadlines, launches, or team pushes. "
+            f"Meanwhile, extended low-activity periods may point to gaps in task tracking, team absences, or lulls in workload.\n\n"
+            f"Use this to inform capacity planning or investigate performance cycles."
+            )
+        st.info(cal_summary)
 
     # --- Tab 7 ---
     with tab7:
