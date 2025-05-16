@@ -86,19 +86,19 @@ if uploaded_files:
         col2.metric("Average Time per Task (min)", round(avg_minutes, 2))
         col3.metric("Total Tasks", total_tasks)
 
-        st.markdown("### 🧠 AI Summary")
+        st.markdown("### 🧠 AI Insight")
         top_user = user_summary.iloc[0]['First Name']
         top_minutes = user_summary.iloc[0]['Total Minutes']
         top_tasks = user_summary.iloc[0]['Task Count']
         avg_task_time = user_summary['Avg Minutes/Task'].mean()
 
         summary_text = (
-            f"Between **{selected_dates[0]}** and **{selected_dates[1]}**, a total of **{total_minutes} minutes** "
-            f"were logged across **{total_tasks} tasks** by **{len(selected_users)} users**. "
-            f"The average task duration was **{round(avg_minutes, 2)} minutes**. "
-            f"**{top_user}** contributed the most with **{top_minutes} minutes** across **{top_tasks} tasks**. "
-            f"Overall, users spent an average of **{round(avg_task_time, 2)} minutes per task**."
-        )
+            f"Across the selected date range, a total of **{total_minutes} minutes** were logged across **{total_tasks} tasks** "
+            f"by **{len(selected_users)} users**. The average task duration was **{round(avg_minutes, 2)} minutes**.\n\n"
+            f"Notably, **{top_user}** emerged as the top contributor with **{top_minutes} minutes** spent on **{top_tasks} tasks**, "
+            f"suggesting a consistently high engagement level.\n\n"
+            f"These metrics offer a holistic view of team workload, individual contribution, and time investment per task."
+            )
         st.info(summary_text)
 
     # --- Tab 2 ---
