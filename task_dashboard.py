@@ -262,7 +262,11 @@ if uploaded_files:
         st.subheader("Raw Uploaded Data")
         st.dataframe(filtered_df, use_container_width=True)
         st.markdown("### 🧠 AI Insight")
-        st.info(f"The dataset has **{filtered_df.shape[0]} rows** and includes **{filtered_df['user_first_name'].nunique()} users**.")
+        st.info(
+            f"The dataset includes **{filtered_df.shape[0]} tasks** across **{filtered_df['user_first_name'].nunique()} users**.\n\n"
+            f"This raw view is helpful for audits, exports, or deep data exploration. "
+            f"Filtering allows for precise investigation of specific time ranges or user activity."
+            )
 
     # --- Tab 8 ---
     with tab8:
