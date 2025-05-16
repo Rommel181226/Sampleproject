@@ -16,10 +16,6 @@ if os.path.exists(logo_path):
 
 st.sidebar.markdown("## 📁 Task Dashboard Sidebar")
 
-# Refresh Button
-if st.sidebar.button("🔄 Refresh Dashboard"):
-    st.experimental_rerun()
-
 # File uploader widget
 uploaded_files = st.sidebar.file_uploader(
     "Upload CSV files", type=["csv"], accept_multiple_files=True
