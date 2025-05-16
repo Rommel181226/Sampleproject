@@ -21,50 +21,6 @@ uploaded_files = st.sidebar.file_uploader(
     "Upload CSV files", type=["csv"], accept_multiple_files=True
 )
 
-# Initialize theme state
-if 'theme' not in st.session_state:
-    st.session_state['theme'] = 'light'
-
-# Step 2: Define toggle button
-toggle_label = "🌙 Switch to Dark Mode" if st.session_state['theme'] == 'light' else "☀️ Switch to Light Mode"
-if st.button(toggle_label):
-    # Step 3: Toggle theme and rerun safely
-    st.session_state['theme'] = 'dark' if st.session_state['theme'] == 'light' else 'light'
-    
-
-# Step 4: Apply custom CSS for themes
-def set_theme(theme):
-    if theme == 'dark':
-        st.markdown(
-            """
-            <style>
-            body {
-                background-color: #0e1117;
-                color: white;
-            }
-            .stButton>button {
-                background-color: #333;
-                color: white;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-    else:
-        st.markdown(
-            """
-            <style>
-            body {
-                background-color: white;
-                color: black;
-            }
-            .stButton>button {
-                background-color: #eee;
-                color: black;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-
-set_theme(st.session_state['theme'])
-
 # Sidebar Enhancements
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🔍 Navigation")
