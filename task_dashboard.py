@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 # Page configuration
 st.set_page_config(page_title="Task Dashboard", layout="wide")
-st.title("🗂️ Task Time Analysis Dashboard")
+st.title("📂 Task Time Analysis Dashboard")
 
 # Sidebar logo (optional)
 logo_path = os.path.join("images", "logo.png")
@@ -19,6 +19,17 @@ st.sidebar.markdown("## 📁 Task Dashboard Sidebar")
 uploaded_files = st.sidebar.file_uploader(
     "Upload CSV files", type=["csv"], accept_multiple_files=True
 )
+
+# Sidebar Enhancements
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 🔍 Navigation")
+st.sidebar.markdown("Use the tabs above to explore summaries, visualizations, comparisons, and insights.")
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 💡 Tips")
+st.sidebar.markdown("- Filter by user and date to focus the analysis.\n- Use the word cloud for keyword trends.\n- Review outliers to detect anomalies.")
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 📘 About")
+st.sidebar.info("This dashboard helps visualize and analyze task duration data. Built with Streamlit, Plotly, and AI-generated insights.")
 
 @st.cache_data
 def load_all_data(files):
@@ -37,7 +48,7 @@ if uploaded_files:
     users = df['user_first_name'].dropna().unique()
     min_date, max_date = df['date'].min(), df['date'].max()
 
-    st.sidebar.subheader("Filter Data")
+    st.sidebar.subheader("🔧 Filter Data")
     selected_users = st.sidebar.multiselect("User", options=users, default=list(users))
     selected_dates = st.sidebar.date_input("Date Range", [min_date, max_date])
 
@@ -50,7 +61,7 @@ if uploaded_files:
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
         "📊 Summary", "📈 Visualizations", "⏱️ Task Duration Distribution",
         "👤 User Drilldown", "☁️ Word Cloud", "📅 Calendar Heatmap",
-        "📑 All Uploaded Data", "👥 User Comparison", "🕒 Hourly Heatmap"
+        "📁 All Uploaded Data", "👥 User Comparison", "🕒 Hourly Heatmap"
     ])
 
     # --- Tab 1 ---
