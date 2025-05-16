@@ -58,9 +58,9 @@ if uploaded_files:
     )
     filtered_df = df[mask]
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
         "📊 Summary", "📈 Visualizations", "⏱️ Task Duration Distribution",
-        "👤 User Drilldown", "☁️ Word Cloud", "📅 Calendar Heatmap",
+        "👤 User Drilldown", "🏆 Top Users", "☁️ Word Cloud", "📅 Calendar Heatmap",
         "📁 All Uploaded Data", "👥 User Comparison", "🕒 Hourly Heatmap"
     ])
 
@@ -222,6 +222,40 @@ if uploaded_files:
 
     # --- Tab 5 ---
     with tab5:
+        st.subheader("🏆 Top 5 Users by Total Time Spent")
+        top_users_df = (
+            filtered_df
+            .groupby('user_first_name')['minutes']
+            .sum()
+            .reset_index()
+            .sort_values(by='minutes', ascending=False)
+            .head(5)
+        )
+
+        fig_top_users = px.bar(
+            top_users_df,
+            x='user_first_name',
+            y='minutes',
+            text='minutes',
+            title='Top 5 Users by Total Minutes Logged',
+            color='user_first_name'
+        )
+        fig_top_users.update_traces(texttemplate='%{text:.0f}', textposition='outside')
+        fig_top_users.update_layout(showlegend=False)
+        st.plotly_chart(fig_top_users, use_container_width=True)
+
+        # 🧠 AI Insight
+        most_active = top_users_df.iloc[0]
+        avg_top5 = round(top_users_df['minutes'].mean(), 2)
+        insight_text = (
+            f"Among the top 5 users, **{most_active['user_first_name']}** logged the highest time with **{int(most_active['minutes'])} minutes**. "
+            f"The average time across these top contributors is approximately **{avg_top5} minutes**.\n\n"
+            f"This suggests a core group of high-performing or heavily assigned users—consider balancing workload or learning from their efficiency."
+        )
+        st.markdown("### 🧠 AI Insight")
+        st.info(insight_text)
+    
+    with tab6:
         st.subheader("Word Cloud of Tasks")
         text = " ".join(filtered_df['task'].dropna().astype(str).values)
         if not text.strip():
@@ -248,8 +282,8 @@ if uploaded_files:
         st.info(wc_summary)
 
 
-    # --- Tab 6 ---
-    with tab6:
+    # --- Tab 7 ---
+    with tab7:
         st.subheader("📅 Calendar Heatmap")
         calendar_df = filtered_df.copy()
         calendar_df['date'] = pd.to_datetime(calendar_df['date'])
@@ -271,8 +305,8 @@ if uploaded_files:
             )
         st.info(cal_summary)
 
-    # --- Tab 7 ---
-    with tab7:
+    # --- Tab 8 ---
+    with tab8:
         st.subheader("Raw Uploaded Data")
         st.dataframe(filtered_df, use_container_width=True)
         st.markdown("### 🧠 AI Insight")
@@ -282,8 +316,8 @@ if uploaded_files:
             f"Filtering allows for precise investigation of specific time ranges or user activity."
             )
 
-    # --- Tab 8 ---
-    with tab8:
+    # --- Tab 9 ---
+    with tab9:
         st.subheader("User Comparison")
         comp_users = st.multiselect("Select Users", options=users, default=users[:2])
         if len(comp_users) < 2:
@@ -305,8 +339,8 @@ if uploaded_files:
             )
 
 
-    # --- Tab 9 ---
-    with tab9:
+    # --- Tab 10 ---
+    with tab10:
         st.subheader("🕒 Hourly Activity Heatmap")
         if 'hour' in filtered_df.columns:
             heatmap_df = filtered_df.copy()
