@@ -260,12 +260,12 @@ if uploaded_files:
             st.plotly_chart(fig, use_container_width=True)
 
             st.markdown("### 🧠 AI Insight")
-peak_hour = pivot.groupby('hour')['minutes'].sum().idxmax()
-st.info(
-    f"Hourly heatmap analysis shows the busiest hour is **{peak_hour}:00**. "
-    f"This may reflect team work cycles or consistent meeting/work blocks.\n\n"
-    f"Low-activity hours might represent breaks or off-hours, but persistent dips during working hours could indicate disengagement or scheduling inefficiencies."
-)
+            peak_hour = pivot.groupby('hour')['minutes'].sum().idxmax()
+            st.info(
+            f"Hourly heatmap analysis shows the busiest hour is **{peak_hour}:00**. "
+            f"This may reflect team work cycles or consistent meeting/work blocks.\n\n"
+            f"Low-activity hours might represent breaks or off-hours, but persistent dips during working hours could indicate disengagement or scheduling inefficiencies."
+              )
 
 else:
     st.info("Please upload one or more CSV files to get started.")
