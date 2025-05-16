@@ -241,7 +241,7 @@ if uploaded_files:
             st.plotly_chart(fig, use_container_width=True)
 
             st.markdown("### 🧠 AI Insight")
-            if not comp_df.empty:
+        if not comp_df.empty:
             top_user = comp_df.groupby('user_first_name')['minutes'].sum().idxmax()
             top_value = comp_df.groupby('user_first_name')['minutes'].sum().max()
             st.info(
