@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import calplot
 import os
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
@@ -16,7 +15,7 @@ if os.path.exists(logo_path):
     st.sidebar.image(logo_path, width=150)
 st.sidebar.markdown("## 📁 Task Dashboard Sidebar")
 
-# File uploader widget for multiple CSV files
+# File uploader widget
 uploaded_files = st.sidebar.file_uploader(
     "Upload CSV files", type=["csv"], accept_multiple_files=True
 )
@@ -100,14 +99,11 @@ if uploaded_files:
             f"**{top_user}** contributed the most with **{top_minutes} minutes** across **{top_tasks} tasks**. "
             f"Overall, users spent an average of **{round(avg_task_time, 2)} minutes per task**."
         )
-
         st.info(summary_text)
 
     with tab2:
         st.markdown("## 📈 Visualizations")
-
         st.markdown("### Total Time Spent per User")
-        st.write("This bar chart shows total minutes logged by each user within the selected filters.")
         time_chart = filtered_df.groupby('user_first_name')['minutes'].sum().reset_index()
         fig_time = px.bar(
             time_chart,
@@ -123,61 +119,28 @@ if uploaded_files:
         st.markdown("---")
         st.markdown("### Time Distribution Over Time")
         date_chart = filtered_df.groupby('date')['minutes'].sum().reset_index()
-        fig_date = px.line(
-            date_chart,
-            x='date',
-            y='minutes',
-            markers=True,
-            title='Minutes Logged Over Time',
-            labels={'date': 'Date', 'minutes': 'Total Minutes'}
-        )
+        fig_date = px.line(date_chart, x='date', y='minutes', markers=True, title='Minutes Logged Over Time')
         st.plotly_chart(fig_date, use_container_width=True)
 
         st.markdown("---")
         st.markdown("### Breakdown by Task Type")
         task_summary = filtered_df.groupby('task')['minutes'].sum().reset_index().sort_values(by='minutes', ascending=False)
-
         col1, col2 = st.columns(2)
         with col1:
-            fig_pie = px.pie(
-                task_summary,
-                names='task',
-                values='minutes',
-                title="Total Minutes by Task Type",
-                hole=0.3
-            )
+            fig_pie = px.pie(task_summary, names='task', values='minutes', title="Total Minutes by Task Type", hole=0.3)
             fig_pie.update_traces(textposition='inside', textinfo='percent+label')
             st.plotly_chart(fig_pie, use_container_width=True)
-
         with col2:
-            fig_bar = px.bar(
-                task_summary,
-                x='task',
-                y='minutes',
-                title='Total Minutes by Task Type',
-                labels={'task': 'Task', 'minutes': 'Total Minutes'},
-                text_auto=True
-            )
+            fig_bar = px.bar(task_summary, x='task', y='minutes', title='Total Minutes by Task Type', text_auto=True)
             fig_bar.update_layout(xaxis_tickangle=-45)
             st.plotly_chart(fig_bar, use_container_width=True)
 
     with tab3:
         st.subheader("Task Duration Distribution")
-        fig_hist = px.histogram(
-            filtered_df,
-            x='minutes',
-            nbins=30,
-            title="Histogram of Task Durations (minutes)",
-            labels={"minutes": "Task Duration (minutes)"}
-        )
+        fig_hist = px.histogram(filtered_df, x='minutes', nbins=30, title="Histogram of Task Durations (minutes)")
         st.plotly_chart(fig_hist, use_container_width=True)
 
-        fig_box = px.box(
-            filtered_df,
-            y='minutes',
-            title="Boxplot of Task Durations",
-            labels={"minutes": "Task Duration (minutes)"}
-        )
+        fig_box = px.box(filtered_df, y='minutes', title="Boxplot of Task Durations")
         st.plotly_chart(fig_box, use_container_width=True)
 
         st.subheader("Outlier Detection (Task Duration)")
@@ -189,7 +152,6 @@ if uploaded_files:
 
         st.write(f"Outlier thresholds: Tasks shorter than {lower_bound:.2f} min or longer than {upper_bound:.2f} min.")
         outliers = filtered_df[(filtered_df['minutes'] < lower_bound) | (filtered_df['minutes'] > upper_bound)]
-
         if outliers.empty:
             st.success("No outliers detected in task durations.")
         else:
@@ -225,19 +187,21 @@ if uploaded_files:
             st.pyplot(fig)
 
     with tab6:
-        st.subheader("Calendar Heatmap")
-        heatmap_data = filtered_df.groupby('date')['minutes'].sum().reset_index()
-        heatmap_data['date'] = pd.to_datetime(heatmap_data['date'])
-        heatmap_series = heatmap_data.set_index('date')['minutes']
+        st.subheader("📅 Calendar Heatmap (Plotly Version)")
+        calendar_df = filtered_df.copy()
+        calendar_df['date'] = pd.to_datetime(calendar_df['date'])
+        daily_summary = calendar_df.groupby('date')['minutes'].sum().reset_index()
 
-        fig, ax = calplot.calplot(
-            heatmap_series,
-            cmap='YlGn',
-            colorbar=True,
-            figsize=(16, 6),
-            suptitle="Minutes Logged by Date"
+        fig = px.density_heatmap(
+            daily_summary,
+            x='date',
+            y='minutes',
+            nbinsx=60,
+            title='Heatmap of Minutes Logged per Day',
+            labels={'date': 'Date', 'minutes': 'Minutes'},
+            color_continuous_scale='YlOrBr'
         )
-        st.pyplot(fig)
+        st.plotly_chart(fig, use_container_width=True)
 
     with tab7:
         st.subheader("Raw Uploaded Data")
@@ -274,7 +238,6 @@ if uploaded_files:
         if 'hour' in filtered_df.columns:
             heatmap_df = filtered_df.copy()
             heatmap_df['day'] = pd.to_datetime(heatmap_df['date']).dt.day_name()
-
             pivot = heatmap_df.groupby(['hour', 'day'])['minutes'].sum().reset_index()
             pivot_table = pivot.pivot(index='hour', columns='day', values='minutes').fillna(0)
 
