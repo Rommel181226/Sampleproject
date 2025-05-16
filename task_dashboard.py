@@ -30,7 +30,7 @@ toggle_label = "🌙 Switch to Dark Mode" if st.session_state['theme'] == 'light
 if st.button(toggle_label):
     # Step 3: Toggle theme and rerun safely
     st.session_state['theme'] = 'dark' if st.session_state['theme'] == 'light' else 'light'
-    st.experimental_rerun()
+    
 
 # Step 4: Apply custom CSS for themes
 def set_theme(theme):
