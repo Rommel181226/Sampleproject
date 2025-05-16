@@ -64,6 +64,9 @@ if uploaded_files:
         "📁 All Uploaded Data", "👥 User Comparison", "🕒 Hourly Heatmap"
     ])
 
+    # Existing tab implementations continue below (no change required here, only sidebar was updated)
+
+
     # --- Tab 1 ---
     with tab1:
         st.subheader("User Summary")
