@@ -170,7 +170,14 @@ if uploaded_files:
         st.markdown("### 🧠 AI Insight")
         shortest = round(filtered_df['minutes'].min(), 2)
         longest = round(filtered_df['minutes'].max(), 2)
-        st.info(f"Durations range from **{shortest}** to **{longest}** minutes. Found **{outliers.shape[0]}** outliers.")
+
+        duration_summary = (
+            f"Task durations range widely—from **{shortest} to {longest} minutes**—indicating a mix of quick wins and deeper work.\n\n"
+            f"A total of **{outliers.shape[0]} tasks** were flagged as outliers, either exceptionally short or unusually long. "
+            f"This could signal errors, bottlenecks, or tasks that deserve process review.\n\n"
+            f"Histogram and boxplot distributions help assess whether most tasks fall within acceptable time bands."
+             )
+        st.info(duration_summary)
 
     # --- Tab 4 ---
     with tab4:
