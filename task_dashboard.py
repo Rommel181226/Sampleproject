@@ -26,7 +26,6 @@ def load_all_data(files):
     combined = []
     for file in files:
         df = pd.read_csv(file)
-        # Convert started_at to datetime, extract date and hour
         df['started_at'] = pd.to_datetime(df['started_at'], errors='coerce')
         df['date'] = df['started_at'].dt.date
         df['hour'] = df['started_at'].dt.hour
@@ -36,30 +35,25 @@ def load_all_data(files):
 if uploaded_files:
     df = load_all_data(uploaded_files)
 
-    # Prepare filters
     users = df['user_first_name'].dropna().unique()
     min_date, max_date = df['date'].min(), df['date'].max()
 
-    # Sidebar filters
     st.sidebar.subheader("Filter Data")
     selected_users = st.sidebar.multiselect("User", options=users, default=list(users))
     selected_dates = st.sidebar.date_input("Date Range", [min_date, max_date])
 
-    # Filter data based on selections
     mask = (
         df['user_first_name'].isin(selected_users) &
         (df['date'] >= selected_dates[0]) & (df['date'] <= selected_dates[1])
     )
     filtered_df = df[mask]
 
-    # Tabs
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
         "📊 Summary", "📈 Visualizations", "⏱️ Task Duration Distribution",
         "👤 User Drilldown", "☁️ Word Cloud", "📅 Calendar Heatmap",
-        "📑 All Uploaded Data", "👥 User Comparison"
+        "📑 All Uploaded Data", "👥 User Comparison", "🕒 Hourly Heatmap"
     ])
 
-    # --- Tab 1: Summary ---
     with tab1:
         st.subheader("User Summary")
         user_summary = (
@@ -92,11 +86,26 @@ if uploaded_files:
         col2.metric("Average Time per Task (min)", round(avg_minutes, 2))
         col3.metric("Total Tasks", total_tasks)
 
-    # --- Tab 2: Visualizations ---
+        # AI Summary
+        st.markdown("### 🧠 AI Summary")
+        top_user = user_summary.iloc[0]['First Name']
+        top_minutes = user_summary.iloc[0]['Total Minutes']
+        top_tasks = user_summary.iloc[0]['Task Count']
+        avg_task_time = user_summary['Avg Minutes/Task'].mean()
+
+        summary_text = (
+            f"Between **{selected_dates[0]}** and **{selected_dates[1]}**, a total of **{total_minutes} minutes** "
+            f"were logged across **{total_tasks} tasks** by **{len(selected_users)} users**. "
+            f"The average task duration was **{round(avg_minutes, 2)} minutes**. "
+            f"**{top_user}** contributed the most with **{top_minutes} minutes** across **{top_tasks} tasks**. "
+            f"Overall, users spent an average of **{round(avg_task_time, 2)} minutes per task**."
+        )
+
+        st.info(summary_text)
+
     with tab2:
         st.markdown("## 📈 Visualizations")
 
-        # Total Time Spent per User
         st.markdown("### Total Time Spent per User")
         st.write("This bar chart shows total minutes logged by each user within the selected filters.")
         time_chart = filtered_df.groupby('user_first_name')['minutes'].sum().reset_index()
@@ -112,10 +121,7 @@ if uploaded_files:
         st.plotly_chart(fig_time, use_container_width=True)
 
         st.markdown("---")
-
-        # Time Distribution Over Time
         st.markdown("### Time Distribution Over Time")
-        st.write("This line chart shows how total minutes logged vary by date.")
         date_chart = filtered_df.groupby('date')['minutes'].sum().reset_index()
         fig_date = px.line(
             date_chart,
@@ -128,11 +134,7 @@ if uploaded_files:
         st.plotly_chart(fig_date, use_container_width=True)
 
         st.markdown("---")
-
-        # Breakdown by Task Type
         st.markdown("### Breakdown by Task Type")
-        st.write("The pie chart and bar chart below show total minutes spent on each task type.")
-
         task_summary = filtered_df.groupby('task')['minutes'].sum().reset_index().sort_values(by='minutes', ascending=False)
 
         col1, col2 = st.columns(2)
@@ -159,7 +161,6 @@ if uploaded_files:
             fig_bar.update_layout(xaxis_tickangle=-45)
             st.plotly_chart(fig_bar, use_container_width=True)
 
-    # --- Tab 3: Task Duration Distribution ---
     with tab3:
         st.subheader("Task Duration Distribution")
         fig_hist = px.histogram(
@@ -179,7 +180,6 @@ if uploaded_files:
         )
         st.plotly_chart(fig_box, use_container_width=True)
 
-        # Outlier detection
         st.subheader("Outlier Detection (Task Duration)")
         Q1 = filtered_df['minutes'].quantile(0.25)
         Q3 = filtered_df['minutes'].quantile(0.75)
@@ -188,7 +188,6 @@ if uploaded_files:
         upper_bound = Q3 + 1.5 * IQR
 
         st.write(f"Outlier thresholds: Tasks shorter than {lower_bound:.2f} min or longer than {upper_bound:.2f} min.")
-
         outliers = filtered_df[(filtered_df['minutes'] < lower_bound) | (filtered_df['minutes'] > upper_bound)]
 
         if outliers.empty:
@@ -197,7 +196,6 @@ if uploaded_files:
             st.warning(f"Detected {outliers.shape[0]} outlier tasks:")
             st.dataframe(outliers[['date', 'user_first_name', 'task', 'minutes']], use_container_width=True)
 
-    # --- Tab 4: User Drilldown ---
     with tab4:
         st.subheader("User Drilldown")
         selected_user = st.selectbox("Select User", options=filtered_df['user_first_name'].unique())
@@ -214,7 +212,6 @@ if uploaded_files:
         st.markdown("### Task History")
         st.dataframe(user_df[['date', 'task', 'minutes']], use_container_width=True)
 
-    # --- Tab 5: Word Cloud ---
     with tab5:
         st.subheader("Word Cloud of Tasks")
         text = " ".join(filtered_df['task'].dropna().astype(str).values)
@@ -227,7 +224,6 @@ if uploaded_files:
             ax.axis("off")
             st.pyplot(fig)
 
-    # --- Tab 6: Calendar Heatmap ---
     with tab6:
         st.subheader("Calendar Heatmap")
         heatmap_data = filtered_df.groupby('date')['minutes'].sum().reset_index()
@@ -243,13 +239,11 @@ if uploaded_files:
         )
         st.pyplot(fig)
 
-    # --- Tab 7: All Uploaded Data ---
     with tab7:
         st.subheader("Raw Uploaded Data")
         st.write(f"Showing {filtered_df.shape[0]} rows.")
         st.dataframe(filtered_df, use_container_width=True)
 
-    # --- Tab 8: User Comparison ---
     with tab8:
         st.subheader("User Comparison")
         comp_users = st.multiselect("Select Users to Compare", options=users, default=users[:2])
@@ -273,6 +267,32 @@ if uploaded_files:
             )
             fig_comp.update_layout(xaxis_tickangle=-45)
             st.plotly_chart(fig_comp, use_container_width=True)
+
+    with tab9:
+        st.subheader("🕒 Hourly Activity Heatmap")
+
+        if 'hour' in filtered_df.columns:
+            heatmap_df = filtered_df.copy()
+            heatmap_df['day'] = pd.to_datetime(heatmap_df['date']).dt.day_name()
+
+            pivot = heatmap_df.groupby(['hour', 'day'])['minutes'].sum().reset_index()
+            pivot_table = pivot.pivot(index='hour', columns='day', values='minutes').fillna(0)
+
+            ordered_days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            pivot_table = pivot_table.reindex(columns=ordered_days)
+
+            st.write("This heatmap shows total minutes logged by hour and day of week.")
+            fig = px.imshow(
+                pivot_table,
+                labels=dict(x="Day", y="Hour", color="Total Minutes"),
+                x=pivot_table.columns,
+                y=pivot_table.index,
+                color_continuous_scale='YlOrRd',
+                aspect="auto"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("No hour data available. Make sure 'started_at' was properly parsed.")
 
 else:
     st.info("Please upload one or more CSV files to get started.")
